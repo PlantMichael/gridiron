@@ -5,11 +5,11 @@ extends RefCounted
 ## the look stays consistent without hand-maintaining a dozen .tscn files.
 
 const BG := Color("0d1512")
-const PANEL := Color("152420")
-const PANEL_HI := Color("1e332c")
-const LINE := Color("2c4a40")
+const PANEL := Color("151c21")
+const PANEL_HI := Color("222e35")
+const LINE := Color("42515a")
 const TEXT := Color("dce8e2")
-const MUTED := Color("7d968c")
+const MUTED := Color("a3b1b7")
 const ACCENT := Color("f2c14e")
 const GOOD := Color("6ec46e")
 const BAD := Color("d9534f")
@@ -40,6 +40,7 @@ const FONT_BLOCK := preload("res://assets/fonts/Oswald.ttf")
 const FONT_MARKER := preload("res://assets/fonts/PermanentMarker.ttf")
 
 const TURF_SHADER := preload("res://assets/shaders/turf.gdshader")
+static var _menu_theme: Theme
 
 const STAT_KEYS := ["strength", "agility", "dexterity", "intelligence"]
 const STAT_LABELS := {
@@ -76,7 +77,7 @@ static func stylebox(color: Color, radius: int = 6, border: int = 0, border_colo
 ## overrides the fill (still made a little see-through).
 static func panel(color: Color = PANEL) -> PanelContainer:
 	var p := PanelContainer.new()
-	var sb := stylebox(Color(color.darkened(0.25), 0.9), 10, 1, Color(1, 1, 1, 0.09))
+	var sb := stylebox(Color(color, 0.96), 3, 1, LINE.darkened(0.35))
 	sb.content_margin_left = 12
 	sb.content_margin_right = 12
 	sb.content_margin_top = 10
@@ -171,26 +172,92 @@ static func title(text: String) -> Label:
 static func button(text: String, size: int = 15) -> Button:
 	var b := Button.new()
 	b.text = text
+	b.theme = menu_theme()
 	b.add_theme_font_size_override("font_size", size)
-	b.add_theme_color_override("font_color", TEXT)
-	b.add_theme_color_override("font_hover_color", ACCENT)
-	b.add_theme_stylebox_override("normal", stylebox(PANEL_HI, 6, 1))
-	b.add_theme_stylebox_override("hover", stylebox(LINE, 6, 1, ACCENT))
-	b.add_theme_stylebox_override("pressed", stylebox(ACCENT.darkened(0.5), 6, 1, ACCENT))
-	b.add_theme_stylebox_override("disabled", stylebox(PANEL, 6, 1))
-	b.add_theme_color_override("font_disabled_color", MUTED)
+	b.custom_minimum_size.y = 32
+	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	return b
 
 
 static func primary_button(text: String, size: int = 18) -> Button:
 	var b := button(text, size)
-	b.add_theme_color_override("font_color", Color("13200f"))
-	b.add_theme_color_override("font_hover_color", Color("13200f"))
-	b.add_theme_stylebox_override("normal", stylebox(ACCENT, 6, 0))
-	b.add_theme_stylebox_override("hover", stylebox(ACCENT.lightened(0.15), 6, 0))
-	b.add_theme_stylebox_override("pressed", stylebox(ACCENT.darkened(0.2), 6, 0))
+	for state in ["font_color", "font_hover_color", "font_focus_color", "font_pressed_color", "font_hover_pressed_color"]:
+		b.add_theme_color_override(state, BG)
+	b.add_theme_stylebox_override("normal", stylebox(ACCENT, 3))
+	b.add_theme_stylebox_override("hover", stylebox(ACCENT.lightened(0.15), 3))
+	b.add_theme_stylebox_override("pressed", stylebox(ACCENT.darkened(0.15), 3))
+	b.add_theme_stylebox_override("focus", stylebox(Color.TRANSPARENT, 3, 2, TEXT))
 	b.custom_minimum_size = Vector2(0, 44)
 	return b
+
+
+static func menu_theme() -> Theme:
+	if _menu_theme != null:
+		return _menu_theme
+	var t := Theme.new()
+	t.default_font = FONT_BLOCK
+	for type in ["Button", "OptionButton"]:
+		for state in ["normal", "hover", "pressed", "disabled", "focus"]:
+			var fill: Color = PANEL_HI
+			var rim: Color = LINE
+			if state == "hover":
+				fill = LINE.darkened(0.25)
+			if state == "pressed":
+				fill = ACCENT
+				rim = ACCENT
+			if state == "disabled":
+				fill = PANEL
+				rim = LINE.darkened(0.4)
+			if state == "focus":
+				fill = Color.TRANSPARENT
+				rim = ACCENT
+			t.set_stylebox(state, type, stylebox(fill, 3, 2 if state == "focus" else 1, rim))
+		for state in ["font_color", "font_hover_color", "font_focus_color"]:
+			t.set_color(state, type, TEXT)
+		for state in ["font_pressed_color", "font_hover_pressed_color"]:
+			t.set_color(state, type, BG)
+		t.set_color("font_disabled_color", type, MUTED)
+	t.set_stylebox("panel", "PopupMenu", stylebox(PANEL, 3, 1, LINE))
+	t.set_stylebox("hover", "PopupMenu", stylebox(PANEL_HI, 2))
+	t.set_color("font_color", "PopupMenu", TEXT)
+	t.set_color("font_hover_color", "PopupMenu", ACCENT)
+	t.set_color("font_disabled_color", "PopupMenu", MUTED)
+	t.set_stylebox("panel", "AcceptDialog", stylebox(PANEL, 3, 1, LINE))
+	_menu_theme = t
+	return t
+
+
+static func menu_panel() -> PanelContainer:
+	var p := panel()
+	var sb := stylebox(PANEL, 3, 1, LINE)
+	sb.border_width_top = 3
+	sb.border_color = ACCENT
+	sb.content_margin_left = 24
+	sb.content_margin_right = 24
+	sb.content_margin_top = 20
+	sb.content_margin_bottom = 20
+	sb.shadow_size = 16
+	sb.shadow_color = Color(0, 0, 0, 0.4)
+	p.add_theme_stylebox_override("panel", sb)
+	return p
+
+
+## Flat rows shared by title navigation and the in-game menu.
+static func menu_item(text: String, primary: bool = false) -> Button:
+	var b := primary_button(text, 20) if primary else button(text, 20)
+	b.alignment = HORIZONTAL_ALIGNMENT_LEFT
+	b.custom_minimum_size.y = 44
+	if not primary:
+		b.add_theme_stylebox_override("normal", stylebox(Color.TRANSPARENT, 2))
+		b.add_theme_stylebox_override("hover", stylebox(PANEL_HI, 2))
+	return b
+
+
+static func menu_space() -> Control:
+	var c := Control.new()
+	c.custom_minimum_size.x = 128
+	c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return c
 
 
 ## A rounded, pill-shaped primary_button - for the floating calls to action
@@ -486,6 +553,7 @@ static func marker_label(text: String, size: int = 15, color: Color = INK) -> La
 ## with BG as the color underneath in case the shader can't run. `night`
 ## turns on the stadium floodlights and a vignette (the title screen).
 static func background(root: Control, night: bool = false) -> void:
+	root.theme = menu_theme()
 	var cr := ColorRect.new()
 	cr.color = BG
 	var mat := ShaderMaterial.new()
@@ -498,11 +566,30 @@ static func background(root: Control, night: bool = false) -> void:
 	cr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(cr)
 	root.move_child(cr, 0)
+	if root.scene_file_path != "res://scenes/main_menu.tscn":
+		# Both existing rebuild conventions preserve backdrop ColorRects.
+		var host := ColorRect.new()
+		host.name = "MenuLauncher"
+		host.set_meta("backdrop", true)
+		host.color = Color.TRANSPARENT
+		host.set_anchors_preset(Control.PRESET_FULL_RECT)
+		host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		root.add_child(host)
+		var launcher := button("MENU  ≡", 17)
+		launcher.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+		launcher.offset_left = -136
+		launcher.offset_right = -24
+		launcher.offset_top = 24
+		launcher.offset_bottom = 68
+		launcher.tooltip_text = "Open menu (Esc)"
+		launcher.pressed.connect(PauseMenu.open)
+		host.add_child(launcher)
+		# Control input follows sibling order, including after a page rebuild.
+		host.move_to_front.call_deferred()
+		root.child_entered_tree.connect(func(_child: Node): host.move_to_front.call_deferred())
 
 
-## Standard header strip: title on the left, bucks and round on the right.
-## Standard header strip: the screen's title on the turf on the left, the
-## bucks on a scoreboard on the right.
+## Screen title, balance and reserved space for the shared menu launcher.
 static func header(title_text: String, subtitle: String = "") -> HBoxContainer:
 	var h := HBoxContainer.new()
 	h.add_theme_constant_override("separation", 14)
@@ -515,7 +602,10 @@ static func header(title_text: String, subtitle: String = "") -> HBoxContainer:
 	var spacer := Control.new()
 	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	h.add_child(spacer)
-	var bucks := scoreboard("Football bucks", "$%d" % GameState.bucks)
+	var bucks := VBoxContainer.new()
+	bucks.add_child(label("FOOTBALL BUCKS", 11, MUTED))
+	bucks.add_child(label("$%d" % GameState.bucks, 26, ACCENT))
 	bucks.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	h.add_child(bucks)
+	h.add_child(menu_space())
 	return h

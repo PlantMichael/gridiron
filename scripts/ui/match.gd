@@ -51,8 +51,6 @@ var scout_text: Label
 var _scout_shown: String = ""
 var challenge_label: Label
 var _challenges: Array = []
-var cam_btn: Button
-var speed_btns: Dictionary = {}   # float speed -> Button, see _build_speed_buttons
 
 var _sb: Dictionary = {}
 var _last_phase: int = -1
@@ -269,67 +267,19 @@ func _build_top_bar() -> void:
 	_add_sb(row, "down", "DOWN & DISTANCE", UIKit.TEXT)
 	_add_sb(row, "spot", "BALL ON", UIKit.TEXT)
 
-	var controls := PanelContainer.new()
-	var control_style := _overlay_style(0.94)
-	control_style.set_corner_radius_all(7)
-	control_style.border_color = Color("516155")
-	control_style.set_border_width_all(1)
-	controls.add_theme_stylebox_override("panel", control_style)
+	var controls := UIKit.panel()
 	controls.set_anchors_preset(Control.PRESET_TOP_RIGHT)
-	controls.offset_left = -16
-	controls.offset_right = -16
+	controls.offset_left = -152
+	controls.offset_right = -152
 	controls.offset_top = 12
-	controls.offset_bottom = 12
 	controls.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	controls.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(controls)
-	var tools := VBoxContainer.new()
-	tools.add_theme_constant_override("separation", 4)
-	controls.add_child(tools)
 	var info := HBoxContainer.new()
-	info.add_theme_constant_override("separation", 12)
-	tools.add_child(info)
+	info.add_theme_constant_override("separation", 20)
+	controls.add_child(info)
 	_add_sb(info, "weather", "CONDITIONS", UIKit.TEXT)
 	_update_weather_label()
 	_add_sb(info, "earned", "EARNED", UIKit.ACCENT)
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	info.add_child(spacer)
-	_build_speed_buttons(info)
-	var actions := HBoxContainer.new()
-	actions.add_theme_constant_override("separation", 8)
-	tools.add_child(actions)
-
-	cam_btn = UIKit.button("", 13)
-	cam_btn.custom_minimum_size = Vector2(190, 0)
-	cam_btn.pressed.connect(func(): field.toggle_camera_lock())
-	actions.add_child(cam_btn)
-	_update_cam_btn()
-
-	var stats_btn := UIKit.button("Team Stats", 13)
-	stats_btn.pressed.connect(func():
-		if side_panel.visible and _side_panel_mode == "stats":
-			_dismiss_overlays()
-		else:
-			_open_team_stats())
-	actions.add_child(stats_btn)
-
-	var pause_btn := UIKit.button("Pause (Esc)", 13)
-	pause_btn.pressed.connect(PauseMenu.open)
-	actions.add_child(pause_btn)
-
-	if GameState.dev_mode:
-		# Equipping an item is only possible from the lineup screen (the
-		# in-match sub panel only swaps which player is in a slot), so a
-		# quick link there is the only way dev mode's item stash is actually
-		# reachable rather than just sitting unused in the inventory.
-		var lineup_btn := UIKit.button("  Lineup  ", 13)
-		lineup_btn.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/lineup.tscn"))
-		actions.add_child(lineup_btn)
-
-		var exit_dev := UIKit.button("  Exit dev mode  ", 13)
-		exit_dev.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/main_menu.tscn"))
-		actions.add_child(exit_dev)
 
 
 func _add_team_score(row: HBoxContainer, key: String, team: String, role: String, color: Color) -> void:
@@ -558,38 +508,6 @@ func _update_top_bar() -> void:
 	_set_sb("down", sim.down_text())
 	_set_sb("spot", sim.yard_line_text(sim.los))
 	_set_sb("earned", "$%d" % bucks_earned)
-	_update_cam_btn()
-
-
-## Kept in sync every frame since the "L" key can flip the lock without
-## going through this button at all.
-func _update_cam_btn() -> void:
-	var locked: bool = field.get("camera_locked")
-	cam_btn.text = "Camera: Following ball (L)" if locked else "Camera: Free - WASD/drag (L)"
-
-
-## Game-speed control, in the top bar so it's visible in every phase rather
-## than only during Phase.LIVE (where it used to live, in _live_bar).
-func _build_speed_buttons(row: HBoxContainer) -> void:
-	row.add_child(UIKit.label("Speed", 12, UIKit.MUTED))
-	for s in [0.5, 1.0, 2.0, 4.0]:
-		var b := UIKit.button("%sx" % ("0.5" if s == 0.5 else str(int(s))), 13)
-		b.custom_minimum_size = Vector2(48, 0)
-		b.pressed.connect(func():
-			speed = s
-			_update_speed_buttons())
-		row.add_child(b)
-		speed_btns[s] = b
-	_update_speed_buttons()
-
-
-func _update_speed_buttons() -> void:
-	for s in speed_btns:
-		var b: Button = speed_btns[s]
-		if is_equal_approx(float(s), speed):
-			b.add_theme_stylebox_override("normal", UIKit.stylebox(UIKit.LINE, 6, 2, UIKit.ACCENT))
-		else:
-			b.add_theme_stylebox_override("normal", UIKit.stylebox(UIKit.PANEL_HI, 6, 1))
 
 
 func _set_sb(key: String, value: String) -> void:

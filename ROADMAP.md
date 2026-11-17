@@ -5,6 +5,10 @@ is available from any checkout. Priorities 1–3 are implemented; priority 3 sti
 needs player balance testing. Priority 4 is next. Future content counts below
 remain proposals, rather than features already in the game.
 
+The shared broadcast menu is implemented across gameplay screens and the title.
+Match speed, camera and stats are grouped in Menu instead of the field HUD.
+This UI pass does not complete priority 4’s introductions.
+
 ## Priorities
 
 | Priority | Status | Work and intended result |

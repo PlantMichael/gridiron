@@ -39,8 +39,12 @@ are deliberate fixtures; it must finish with `STARTUP CHECK: ALL CHECKS PASSED`.
 
 ## Pausing
 
-Press **Esc** on any gameplay screen, or click **Pause (Esc)** in the match
-toolbar. The pause menu freezes gameplay and countdowns. Choose **Resume** or
+Press **Esc** or click the top-right **Menu** on any gameplay screen. The shared
+broadcast menu freezes gameplay and countdowns. In a match it also holds game
+speed, camera mode and Team Stats; speed and camera changes keep the game paused.
+Team Stats resumes into the stats panel. Dev mode adds a Lineup shortcut.
+The title and common navigation controls use the same dark panels and gold cues.
+Choose **Resume** or
 press Esc again to continue. **Main Menu** and the desktop-only **Quit Game**
 ask for confirmation because runs are not saved; only bowl completion marks
 survive a restart. Esc from that confirmation returns to the pause menu.

@@ -48,9 +48,9 @@ func _build() -> void:
 	title_box.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	title_box.add_theme_constant_override("separation", 0)
 	title_box.add_child(UIKit.outlined(UIKit.label("PLAYER BOOK", 34, UIKit.ACCENT)))
-	title_box.add_child(UIKit.outlined(UIKit.label(
-		"Every hardcoded shop draft pick, Ritual Site Cursed player, and Laboratory Oddity in the game.",
-		15, UIKit.TEXT), 5))
+	var subtitle := UIKit.label("Shop draft picks, Cursed players and Laboratory Oddities.", 15, UIKit.TEXT)
+	subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	title_box.add_child(UIKit.outlined(subtitle, 5))
 	top.add_child(title_box)
 
 	var sort_label := UIKit.outlined(UIKit.label("Sort:", 15, UIKit.TEXT), 5)
@@ -68,6 +68,7 @@ func _build() -> void:
 		_sort_mode = "position"
 		_rebuild())
 	top.add_child(by_pos)
+	top.add_child(UIKit.menu_space())
 
 	var grid := GridContainer.new()
 	grid.columns = 6
