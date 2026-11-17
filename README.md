@@ -235,6 +235,10 @@ maps to screen -y and field-y maps to screen x, and the camera follows the ball,
 clamped to the field, and biased upward by `bottom_inset` so the ball never
 ends up behind the chalkboard.
 
+Opponents can wear green, red, black, brown, orange or purple uniforms. Their
+sideline civilians match the uniform palette; scoreboard accents and end-zone
+paint use muted versions of the same colors. Your team remains blue.
+
 Players are drawn from above as a slim upright capsule with the jersey number
 printed on it and a head circle at the top. They **always stand upright** and
 never lean into the direction they are running. Three bits of motion sit on top

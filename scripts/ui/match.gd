@@ -260,7 +260,7 @@ func _build_top_bar() -> void:
 	top_bar.add_child(row)
 
 	_add_team_score(row, "us", GameState.team_name, "HOME", Color("6689a5"))
-	var opposing_color := Color("ad7166") if sim.defense_jersey == "red" else Color("7d9a71") if sim.defense_jersey == "green" else Color("6689a5")
+	var opposing_color := JerseyDB.score_color(sim.defense_jersey)
 	_add_team_score(row, "them", sim.opponent_name, "VISITOR", opposing_color)
 	row.add_child(VSeparator.new())
 	_add_sb(row, "drive", "DRIVE", UIKit.TEXT)

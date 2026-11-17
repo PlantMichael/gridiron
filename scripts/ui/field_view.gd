@@ -1369,10 +1369,7 @@ func _draw_field() -> void:
 		if y0 < size.y and y1 > 0.0:
 			var paint := Color("303e46")
 			if ez[0] != 0.0:
-				if sim.defense_jersey == "red":
-					paint = Color("483a36")
-				elif sim.defense_jersey == "green":
-					paint = Color("374537")
+				paint = JerseyDB.endzone_color(sim.defense_jersey)
 			draw_rect(Rect2(Vector2(left, y0), Vector2(right - left, y1 - y0)), paint)
 
 	_draw_grass_detail()

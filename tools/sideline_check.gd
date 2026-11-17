@@ -13,6 +13,9 @@ func _ready() -> void:
 	await screen.ready_to_play
 	screen.set_process(false)
 	var sim: MatchSim = screen.sim
+	# The drive can legitimately contain a twelfth defender. Presentation must
+	# preserve that roster too, rather than assuming a fixed team size.
+	_check(sim.set_drive_event(DriveEventDB.EXTRA_DEFENDER), "extra-defender presentation fixture")
 	var field = screen.field
 	var crowd: SidelineCrowd = field.sidelines
 	field.set_process(false)
@@ -52,20 +55,23 @@ func _ready() -> void:
 		var footprint: Vector2 = SidelineCrowd.PROP_SIZES[prop.kind]
 		_check(prop.pos.y + footprint.y * 0.5 < -2.0 or prop.pos.y - footprint.y * 0.5 > MatchSim.FIELD_W + 2.0,
 			"decorations keep the field and officials' lane clear")
-	sim.defense_jersey = "red"
-	_check(crowd.team_palette(true, sim) == "blue" and crowd.team_palette(false, sim) == "red", "red opponent jersey palette")
-	sim.defense_jersey = "green"
-	_check(crowd.team_palette(false, sim) == "green", "palette follows a changed opponent")
+	for palette in JerseyDB.COLORS:
+		sim.defense_jersey = palette
+		_check(crowd.team_palette(true, sim) == "blue" and crowd.team_palette(false, sim) == palette,
+			"sideline palette follows opponent " + palette)
+		_check(crowd.warm_resources(sim), "all sideline facings load for " + palette)
 	var rng_before := sim.rng.state
 	var ball_before := sim.ball_pos
 	var player_before := sim.offense[0].pos
 	var time_before := sim.time
 	var run_rng_before := GameState.rng.state
+	var offense_count := sim.offense.size()
+	var defense_count := sim.defense.size()
 	crowd.reset(sim)
 	for i in 10:
 		crowd.advance(sim, 0.016)
 	_check(sim.rng.state == rng_before and GameState.rng.state == run_rng_before and sim.ball_pos == ball_before and sim.time == time_before
-		and sim.offense[0].pos == player_before and sim.offense.size() == 11 and sim.defense.size() == 11,
+		and sim.offense[0].pos == player_before and sim.offense.size() == offense_count and sim.defense.size() == defense_count,
 		"sideline updates preserve gameplay state and seeded RNG")
 	sim.snap()
 	crowd.advance(sim, 0.016)

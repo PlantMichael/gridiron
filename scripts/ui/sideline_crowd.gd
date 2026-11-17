@@ -308,7 +308,7 @@ func _result_reaction(sim: MatchSim) -> void:
 
 func team_palette(offense: bool, sim: MatchSim) -> String:
 	var jersey := JerseyDB.BLUE if offense else sim.defense_jersey
-	return jersey if jersey in ["red", "green"] else "blue"
+	return jersey if jersey in JerseyDB.COLORS else "blue"
 
 
 func draw_on(field, sim: MatchSim) -> void:
