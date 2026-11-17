@@ -171,13 +171,12 @@ func _shoot_match() -> void:
 	await RenderingServer.frame_post_draw
 	_save("match_downed")
 
-	await _shoot_upgrade_flow(inst, sim)
+	await _shoot_drive_over(inst, sim)
 	inst.queue_free()
 
 
-## Forces a touchdown result and walks through the per-game upgrade overlay
-## (choice, then recipient picker) so both states can be eyeballed.
-func _shoot_upgrade_flow(inst: Node, sim: MatchSim) -> void:
+## A scored drive continues directly to the normal drive-over panel.
+func _shoot_drive_over(inst: Node, sim: MatchSim) -> void:
 	sim.result = {
 		"td": true, "yards": 5.0, "turnover": false,
 		"text": "TOUCHDOWN, Test Player!", "bucks": 100, "events": [],
@@ -190,19 +189,7 @@ func _shoot_upgrade_flow(inst: Node, sim: MatchSim) -> void:
 	for i in 5:
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
-	_save("match_upgrade_choice")
-
-	var pending: Array = inst.get("pending_upgrades")
-	if pending.is_empty():
-		print("  ERR match_upgrade_choice: pending_upgrades was empty")
-		return
-
-	var target: PlayerData = pending[0]["player"]
-	inst.call("_apply_upgrade", target, pending[0])
-	for i in 5:
-		await get_tree().process_frame
-	await RenderingServer.frame_post_draw
-	_save("match_upgrade_applied")
+	_save("match_drive_over")
 
 
 func _was_tackled(sim: MatchSim) -> bool:

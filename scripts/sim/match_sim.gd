@@ -103,10 +103,20 @@ var weather: String = WeatherDB.CLEAR
 ## WeatherDB.PUDDLE_SPEED_MULT speed.
 var puddles: Array = []
 
+## Drive events are enabled by the game screen; standalone tuning workloads
+## retain their original event-free setup unless they explicitly opt in.
+var drive_event: String = DriveEventDB.NONE
+var drive_event_depth: int = 0
+var _drive_events_enabled := false
+var oil_spills: Array = []       # {pos: Vector2, r: float}, fixed for this drive
+var bottles: Array = []          # {from, pos, impact_at, impacted}; play-local
+var _bottles_thrown := 0
+const EVENT_DEFENDER_SLOT := "LB_EVENT"
+
 # --- Play state -------------------------------------------------------------
 
 var offense: Array[SimPlayer] = []   # index 0..10, matching GameState.SLOT_ORDER
-var defense: Array[SimPlayer] = []   # 4 linemen, 3 linebackers, 4 defensive backs
+var defense: Array[SimPlayer] = []   # 11 base defenders, optionally one event LB
 var play_id: String = ""
 var play: Dictionary = {}
 
@@ -216,11 +226,8 @@ var ball_air_time: float = 0.0
 const PRIORITY_TARGET_BONUS := 5.0
 var priority_targets: Dictionary = {}   # slot String -> true
 
-## Roguelike per-game upgrades picked after a scoring drive (see
-## GameState/match.gd's upgrade-choice overlay). Keyed by PlayerData rather
-## than slot so a bonus follows the player even if he's later subbed to the
-## bench and back in. Lives only on this MatchSim - a fresh match starts
-## with none, so these never carry over between games.
+## Match-local bonuses from run-map mystery events. Keyed by PlayerData so
+## they follow substitutions. Touchdowns do not grant stat bonuses.
 var match_bonuses: Dictionary = {}   # PlayerData -> {stat String -> int amount}
 
 ## Keying on the hot hand: the scouting report's favorite target (see
@@ -319,6 +326,12 @@ func _notification(what: int) -> void:
 # ============================================================================
 
 func setup(starters: Array, defense_data: Array, quality: float, opp_name: String, drives: int, seed_value: int = 0) -> void:
+	drive_event = DriveEventDB.NONE
+	drive_event_depth = 0
+	_drive_events_enabled = false
+	oil_spills.clear()
+	bottles.clear()
+	_bottles_thrown = 0
 	if seed_value != 0:
 		rng.seed = seed_value
 	else:
@@ -356,6 +369,7 @@ func _build_offense(starters: Array) -> void:
 
 
 func _build_defense() -> void:
+	_remove_event_defender()
 	defense.clear()
 	var labels := ["DL0", "DL1", "DL2", "DL3", "LB0", "LB1", "LB2", "DB0", "DB1", "DB2", "DB3"]
 	for i in labels.size():
@@ -365,6 +379,7 @@ func _build_defense() -> void:
 		sp.slot = labels[i]
 		sp.label = str(sp.data.number)
 		defense.append(sp)
+	_add_event_defender()
 
 
 ## Dev-mode hook: swap in a freshly generated defense at `quality`, live,
@@ -442,7 +457,7 @@ func all_priority_targets_selected() -> bool:
 	return true
 
 
-# --- Per-game roguelike upgrades ---------------------------------------------
+# --- Run-map match bonuses --------------------------------------------------
 
 func add_match_bonus(pd: PlayerData, stat: String, amount: int) -> void:
 	var mods: Dictionary = match_bonuses.get(pd, {})
@@ -565,7 +580,97 @@ func begin_drive() -> void:
 		sp.stat_decay = 0
 	for sp in defense:
 		sp.energy = minf(1.0, sp.energy + 0.55)
+	set_drive_event(DriveEventDB.roll(rng, drive_event_depth) if _drive_events_enabled else DriveEventDB.NONE)
 	log_line("--- Drive %d of %d, ball on the %s ---" % [drive_num, total_drives, yard_line_text(los)])
+	if drive_event != DriveEventDB.NONE:
+		log_line("THIS DRIVE: %s — %s" % [DriveEventDB.event_name(drive_event), DriveEventDB.description(drive_event)])
+
+
+func configure_drive_events(depth: int) -> void:
+	_drive_events_enabled = true
+	drive_event_depth = maxi(0, depth)
+
+
+## Production drive transition and the Dev preview use the same application
+## path. A preview is current-drive only; begin_drive always rolls afresh.
+func set_drive_event(id: String) -> bool:
+	if phase != Phase.PRESNAP or not DriveEventDB.ALL.has(id):
+		return false
+	_remove_event_defender()
+	drive_event = id
+	oil_spills.clear()
+	bottles.clear()
+	_bottles_thrown = 0
+	for sp in offense + defense:
+		sp.terrain_mult = 1.0
+	if id == DriveEventDB.OIL:
+		for i in 3:
+			oil_spills.append({"pos": Vector2(minf(los + 8.0 + i * 9.0, GOAL_LINE - 3.0),
+				rng.randf_range(8.0, FIELD_W - 8.0)), "r": rng.randf_range(3.0, 4.5)})
+	_add_event_defender()
+	return true
+
+
+func _add_event_defender() -> void:
+	if drive_event != DriveEventDB.EXTRA_DEFENDER:
+		return
+	for d in defense:
+		if d.slot == EVENT_DEFENDER_SLOT:
+			return
+	var d := SimPlayer.new()
+	d.data = Generator._make_defender(rng, "LB", opponent_quality)
+	d.slot = EVENT_DEFENDER_SLOT
+	d.label = str(d.data.number)
+	defense.append(d)
+
+
+func _remove_event_defender() -> void:
+	for i in range(defense.size() - 1, -1, -1):
+		var d := defense[i]
+		if d.slot != EVENT_DEFENDER_SLOT:
+			continue
+		# An ability, block or interception can still reference this player.
+		for sp in offense + defense:
+			if sp.mark == d:
+				sp.mark = null
+				sp.engaged = false
+			if sp.synergy.get("block_target") == d:
+				sp.synergy.erase("block_target")
+		chains = chains.filter(func(link): return link[0] != d and link[1] != d)
+		shots = shots.filter(func(shot): return shot["from"] != d and shot["to"] != d)
+		if tackler == d:
+			tackler = null
+		if interceptor == d:
+			interceptor = null
+		if carrier == d:
+			carrier = null
+		d.mark = null
+		d.synergy.clear()
+		defense.remove_at(i)
+
+
+func _step_drive_event() -> void:
+	if drive_event != DriveEventDB.BOTTLES:
+		return
+	if _bottles_thrown < 3 and time >= 0.75 + 3.0 * _bottles_thrown:
+		var target := carrier.pos if carrier != null else ball_pos
+		target.x = clampf(target.x, OWN_GOAL, GOAL_LINE)
+		target.y = clampf(target.y, 2.0, FIELD_W - 2.0)
+		var side := -2.0 if rng.randf() < 0.5 else FIELD_W + 2.0
+		bottles.append({"from": Vector2(target.x - 4.0, side), "pos": target,
+			"impact_at": time + DriveEventDB.BOTTLE_WARNING, "impacted": false})
+		_bottles_thrown += 1
+	for i in range(bottles.size() - 1, -1, -1):
+		var b: Dictionary = bottles[i]
+		if time >= float(b["impact_at"]) and not b["impacted"]:
+			b["impacted"] = true
+			for sp in offense + defense:
+				if not sp.melted and sp.pos.distance_to(b["pos"]) <= DriveEventDB.BOTTLE_RADIUS:
+					sp.stunned = maxf(sp.stunned, DriveEventDB.BOTTLE_STUN)
+					sp.engaged = false
+					_grant_event(sp, "BOTTLE!")
+		if time > float(b["impact_at"]) + DriveEventDB.BOTTLE_IMPACT:
+			bottles.remove_at(i)
 
 
 ## Sets the match's weather. Call before start_match (or, in dev mode,
@@ -586,17 +691,20 @@ func _spawn_puddles(count: int) -> void:
 		})
 
 
-## Every player's footing this frame - slowed while standing in a puddle.
+## Footing from oil and rain this frame; use the stronger local slowdown.
 func _update_terrain() -> void:
 	for group in [offense, defense]:
 		for sp in group:
 			sp.terrain_mult = 1.0
-			if sp.is_offense and AbilityDB.weather_immune(sp.ability()):
-				continue
-			for pd in puddles:
-				if sp.pos.distance_to(pd["pos"]) <= float(pd["r"]):
-					sp.terrain_mult = WeatherDB.PUDDLE_SPEED_MULT
+			for oil in oil_spills:
+				if sp.pos.distance_to(oil["pos"]) <= float(oil["r"]):
+					sp.terrain_mult = DriveEventDB.OIL_SPEED
 					break
+			if not (sp.is_offense and AbilityDB.weather_immune(sp.ability())):
+				for pd in puddles:
+					if sp.pos.distance_to(pd["pos"]) <= float(pd["r"]):
+						sp.terrain_mult = minf(sp.terrain_mult, WeatherDB.PUDDLE_SPEED_MULT)
+						break
 
 
 func yard_line_text(x: float) -> String:
@@ -700,6 +808,8 @@ func set_play(id: String, instant: bool = true) -> void:
 ## Shared reset + alignment for both call paths. `play` must already be set.
 func _begin_call(instant: bool, walk: bool = false) -> void:
 	time = 0.0
+	bottles.clear()
+	_bottles_thrown = 0
 	_pocket_hold = 0.0
 	_patient_throw = false
 	speed_patches.clear()
@@ -858,6 +968,9 @@ func _apply_modifiers(sp: SimPlayer, ctx: Dictionary) -> void:
 			AbilityDB.snap_bonus(sp.ability(), pd, ctx)]:
 		for key in mods:
 			base[key] = int(base[key]) + int(mods[key])
+	if sp.is_offense and drive_event == DriveEventDB.AURA:
+		for key in DriveEventDB.AURA_STATS:
+			base[key] = int(base[key]) + 1
 	_apply_weather(sp, base)
 	var agi_cap := AbilityDB.speed_cap(sp.ability())
 	if agi_cap < 99:
@@ -1272,6 +1385,12 @@ func _align_defense() -> void:
 			lb.zone_point = Vector2(los + 7.0, cy + [-9.0, 0.0, 9.0][i])
 			lb.target_pos = Vector2(los + 5.5, cy + [-7.5, 0.0, 7.5][i])
 
+	# The additional linebacker uses the same pursuit/contact logic as the 11.
+	for d in defense:
+		if d.slot == EVENT_DEFENDER_SLOT:
+			d.role = SimPlayer.Role.ZONE
+			d.zone_point = Vector2(minf(los + 9.0, GOAL_LINE), cy)
+			d.target_pos = Vector2(minf(los + 7.0, GOAL_LINE), cy)
 	# Note: the defense deliberately gets no pre-snap tell about run vs pass.
 	# Linebackers only crash downhill once _trigger_pursuit fires after the
 	# handoff, and their reaction time is set by Intelligence.
@@ -2039,6 +2158,7 @@ func step(delta: float) -> void:
 		if phase == Phase.LIVE and time > MAX_PLAY_TIME:
 			_finish_kick("short")
 		return
+	_step_drive_event()
 	_update_terrain()
 	_step_melts(delta)
 	if phase != Phase.LIVE:
@@ -3919,7 +4039,8 @@ func kick_curve(line: PackedVector2Array) -> float:
 func _kicker_stat(key: String) -> int:
 	var base := kicker_sp.data.stat(key)
 	var mods := ItemDB.total_stat_mods(kicker_sp.data.items)
-	return clampi(base + int(mods.get(key, 0)) + int(_kicker_assist().get(key, 0)), 1, 15)
+	var aura := 1 if drive_event == DriveEventDB.AURA and DriveEventDB.AURA_STATS.has(key) else 0
+	return clampi(base + int(mods.get(key, 0)) + int(_kicker_assist().get(key, 0)) + aura, 1, 15)
 
 
 ## Stat deltas the kicker gets from teammates' abilities (AbilityDB.

@@ -1,9 +1,9 @@
 # Gridiron development roadmap
 
-Updated November 13, 2026. This records the agreed development order so the plan
-is available from any checkout. Priorities 1 and 2 are implemented; priority 3
-is next. Future content counts and event rules below are proposals to tune during
-development, rather than features already in the game.
+Updated November 17, 2026. This records the agreed development order so the plan
+is available from any checkout. Priorities 1–3 are implemented; priority 3 still
+needs player balance testing. Priority 4 is next. Future content counts below
+remain proposals, rather than features already in the game.
 
 ## Priorities
 
@@ -11,38 +11,38 @@ development, rather than features already in the game.
 |---|---|---|
 | 1 | Complete | **Branding and loading.** Rename the game and repository to Gridiron, add the turf loading bar and animated player, and prepare the players and sidelines before revealing a match. Preserve existing QB/bowl completion records. |
 | 2 | Complete | **Lineup and shop clarity.** Show the selected starter, eligible replacements and stat comparisons. Use explicit Start, Swap, Equip and Unequip actions. Explain purchase destinations, lab costs, and ritual player losses before confirmation. |
-| 3 | Next | **Remove touchdown buffs and add drive events.** Remove post-touchdown stat-buff choices while retaining scoring and football-buck rewards. Give every offensive drive a chance of an event, with a higher chance deeper into the run. Balance this before adding more items and bowl effects. |
-| 4 | Planned | **Run, match and result presentation.** Introduce the team and QB at run start, show a team-versus-team match splash, clarify win/loss/tie results, and add subtle menu animation. Make repeated introductions skippable. |
+| 3 | Implemented; balance testing pending | **Remove touchdown buffs and add drive events.** Touchdowns retain points and football bucks, with no stat-buff picker. Each drive can roll oil, bottles, an extra defender or Aura Farm, increasingly often deeper into a run. |
+| 4 | Next | **Run, match and result presentation.** Introduce the team and QB at run start, show a team-versus-team match splash, clarify win/loss/tie results, and add subtle menu animation. Make repeated introductions skippable. |
 | 5 | Planned | **Head variety.** Add hair and facial-hair styles. Check all facings, portraits, skin-matched hands and collars, including sideline NPCs. Suggested first batch: 8–12 generic styles. |
 | 6 | Planned | **Items and recognizable sets.** Explain set membership, equipped-piece progress and active bonuses before purchase or equipping. Define set bonuses before expanding the item pool; suggested first batch: three sets of three pieces. |
 | 7 | Planned | **More Oddity and Cursed players.** Add distinct abilities that complement existing builds and explain their strengths and drawbacks during acquisition. Keep Cursed names demon-themed. Suggested first batch: three of each. |
 | 8 | Planned | **Complete bowl identities.** Add unique players or gimmicks to the four bowls without special defenders, then review the existing Pro Bowl and Toilet Bowl effects. Explain every gimmick and provide meaningful counterplay. |
 
-## Next milestone: touchdown rewards and drive events
+## Drive events: implemented first pass
 
-The requested change is to remove touchdown stat-buff choices and let random
-events occur on any offensive drive, becoming more likely as the run progresses.
-Touchdowns still score points and award football bucks.
+Touchdown stat-buff choices are removed. Touchdowns still score points and award
+football bucks; player abilities and run-map match bonuses remain supported.
 
-The initial event rules proposed in the plan are:
+The initial tuning values are:
 
 - Roll once at the start of each offensive drive, including the opening drive.
-- Increase the event chance with run depth; choose the curve and cap through playtesting.
-- Start with at most one event per drive.
+- Start at 20%, add 10 percentage points per completed match, and cap at 65%.
+- Select at most one event per drive, with equal odds among the four events.
 - Announce the effect before the snap and explain its duration.
 - Clear drive-specific effects before rolling the next event.
 - Include beneficial and disruptive events, then rebalance complete runs.
 
-| Event | Proposed behavior |
+| Event | Current behavior |
 |---|---|
-| Oil spill | Clearly marked slippery patches affect footing. |
-| Fans throwing bottles | Telegraphed throws show landing zones and give players time to react. |
-| Extra defender | Add one defender for the drive and remove him afterward. |
-| Aura farm | Buff the team with an aura whose effect and duration are visible. |
+| Oil spill | Three marked patches slow either team to 65% speed. Rain uses the stronger slowdown. |
+| Fans throwing bottles | Up to three throws per non-kick play, with fixed landing zones and 1.25 seconds of warning. Anyone within two yards at impact is stunned for 0.65 seconds. |
+| Extra defender | One additional linebacker covers a shallow zone for the drive, then leaves. |
+| Aura farm | Your team gains +1 STR, AGI, DEX and INT for the drive, including substitutes; normal caps apply. |
 
-Exact odds, buff strengths and hazard behavior remain balance decisions for this
-milestone. Removing touchdown buffs changes the power curve, so item and bowl
-balancing follows the event system.
+The opening drive and overtime use the same roll. Redrawing routes, substitutions
+and kicks do not reroll an event. Dev Mode can preview each event between plays.
+These values need full-run player balance testing before expanding items and
+bowl effects; automated correctness checks do not establish difficulty balance.
 
 ## Completed foundation
 

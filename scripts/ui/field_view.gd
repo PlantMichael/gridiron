@@ -122,6 +122,7 @@ const BIG_SHAKE_TIME := 0.65
 ## Ability props (see MatchSim's "Ability props" section), cut out of
 ## assets/assets.png by assets/props/_cut_props.py. Sizes are in yards.
 const TEX_PEEL := preload("res://assets/props/banana_peel.png")
+const EVENT_BOTTLE := preload("res://assets/sidelines/props/bottle.svg")
 const TEX_CHAIN := preload("res://assets/props/chain.png")
 const TEX_KEG := preload("res://assets/props/beer_keg.png")
 const TEX_SLOT := preload("res://assets/props/slot_machine.png")
@@ -1296,6 +1297,7 @@ func _draw() -> void:
 	_draw_field()
 	sidelines.draw_on(self, sim)
 	_draw_weather_ground()
+	_draw_drive_event_ground()
 	_draw_lines_of_scrimmage()
 	if show_preview and sim.phase == MatchSim.Phase.PRESNAP:
 		if sim.kick_mode:
@@ -1310,6 +1312,7 @@ func _draw() -> void:
 	_draw_chains()
 	_draw_players()
 	_draw_prop_overlays()
+	_draw_event_bottles()
 	_draw_goalposts()
 	_draw_ball()
 	_draw_weather_sky()
@@ -1773,6 +1776,43 @@ func _draw_weather_ground() -> void:
 			var off := Vector2(sin(float(i) * 2.3 + float(k)), cos(float(i) * 1.7 + float(k))) * rad * 0.3
 			draw_arc(off, ring, 0.0, TAU, 20, Color(PUDDLE_RIM, 0.5 * (1.0 - ph)), 1.5, true)
 		draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+
+
+## Muted drive hazards stay attached to field yards, below the players.
+func _draw_drive_event_ground() -> void:
+	for oil in sim.oil_spills:
+		var at := to_px(oil["pos"])
+		var r: float = float(oil["r"]) * _scale
+		draw_circle(at, r, Color("15201e"))
+		draw_arc(at, r, 0.0, TAU, 36, Color("8e9d92"), 1.5, true)
+		draw_arc(at + Vector2(-r * 0.15, -r * 0.1), r * 0.55, 3.6, 5.5, 18, Color("58645f"), 2.0, true)
+	if sim.drive_event == DriveEventDB.AURA:
+		for sp in sim.offense:
+			if not sp.melted:
+				draw_arc(to_px(sp.pos), _player_radius() * 1.25, 0.0, TAU, 24, Color(UIKit.GOOD, 0.38), 2.0, true)
+
+
+func _draw_event_bottles() -> void:
+	for bottle in sim.bottles:
+		var at := to_px(bottle["pos"])
+		var radius := DriveEventDB.BOTTLE_RADIUS * _scale
+		var left := float(bottle["impact_at"]) - sim.time
+		if not bottle["impacted"]:
+			# A fixed landing marker; the bottle never follows a dodging player.
+			draw_circle(at, radius, Color(0.9, 0.6, 0.2, 0.14))
+			draw_arc(at, radius, 0.0, TAU, 28, UIKit.ACCENT, 2.0, true)
+			draw_line(at - Vector2(4, 4), at + Vector2(4, 4), UIKit.ACCENT, 1.5, true)
+			draw_line(at + Vector2(-4, 4), at + Vector2(4, -4), UIKit.ACCENT, 1.5, true)
+			var t := clampf(1.0 - left / DriveEventDB.BOTTLE_WARNING, 0.0, 1.0)
+			var from := to_px(bottle["from"])
+			var flying := from.lerp(at, t) - Vector2(0, sin(t * PI) * 35.0)
+			var h := maxf(10.0, _scale * 1.5)
+			draw_set_transform(flying, t * TAU)
+			draw_texture_rect(EVENT_BOTTLE, Rect2(Vector2(-h * 0.2, -h * 0.5), Vector2(h * 0.4, h)), false)
+			draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
+		else:
+			var fade := clampf(1.0 + left / DriveEventDB.BOTTLE_IMPACT, 0.0, 1.0)
+			draw_arc(at, radius * (1.0 + (1.0 - fade) * 0.5), 0.0, TAU, 24, Color(UIKit.CHALK, fade), 2.0, true)
 
 
 ## Weather in the air, over everything but the stat popups.

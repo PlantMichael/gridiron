@@ -123,6 +123,38 @@ directly by Godot.
 Run `godot --headless --path . res://tools/sideline_check.tscn` for reaction,
 team palette, official tracking, repeat-play and pause checks.
 
+## Drive events and touchdown rewards
+
+Touchdowns award points and football bucks and then lead directly to the normal
+drive-over screen. They no longer offer stat-buff choices. Existing player
+abilities and bonuses from run-map events still work.
+
+Every offensive drive, including the opening drive and overtime, rolls once for
+an event: 20% initially, plus 10 percentage points per completed match, capped at
+65%. A successful roll chooses one of four events with equal odds:
+
+- **Oil Spill:** three dark, rimmed patches slow both teams to 65% speed. Avoid
+  them with your routes. Rain and oil use the stronger slowdown; weather immunity
+  protects against rain, while oil still affects footing.
+- **Fans Throwing Bottles:** up to three throws per non-kick play, starting after
+  0.75 seconds and then every three seconds. A fixed landing marker gives 1.25
+  seconds to move away; an impact stuns anyone within two yards for 0.65 seconds.
+- **Extra Defender:** a twelfth defender patrols a shallow zone for the drive.
+- **Aura Farm:** the offense gains +1 STR, AGI, DEX and INT for this drive,
+  including substitutes and the kicker's relevant stats. Normal caps apply.
+
+The call panel explains the current event before the snap and keeps its name
+visible during live play. Effects clear at the next drive. Route edits,
+substitutions, pause and kick-mode changes do not roll another event. Use the
+**DEV: event** selector between plays in Dev Mode to preview each effect or None.
+Standalone simulation tools keep events off unless they explicitly configure
+them, preserving their existing tuning workloads.
+
+Run `godot --headless --path . res://tools/drive_event_check.tscn` for event
+effects, cleanup, substitutions, scoring, continuation and pause/input checks.
+The probabilities and strengths are initial tuning values; complete runs still
+need player balance testing.
+
 ## Team synergies
 
 The shop now includes 24 cooperative players, also available in the Player Book

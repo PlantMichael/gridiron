@@ -8,7 +8,6 @@ extends Control
 ##   - a floating result card between plays and drives, in its place
 ##   - a card that pops up when you click a player
 ##   - a substitution list that slides in from the right
-##   - a centered panel after a scoring drive to pick a per-game upgrade
 ##
 ## The MatchSim itself lives here; the field view only renders it.
 
@@ -43,7 +42,7 @@ var _bar_height: float = BAR_TALL
 var bar_host: MarginContainer
 var side_panel: PanelContainer
 var card: PanelContainer
-var upgrade_panel: PanelContainer
+var _event_picker: OptionButton
 var log_label: Label
 ## Top-left "SCOUTING REPORT" box: what the defense has picked up on and is
 ## adjusting to (MatchSim.scout_lines). Hidden until it has read something.
@@ -73,11 +72,6 @@ var sub_slot: String = ""
 ## it's hidden) - just enough state to let the Team Stats button toggle
 ## itself off on a second press instead of only ever reopening.
 var _side_panel_mode: String = ""
-
-## The 3 rolled upgrade choices after a scoring drive, empty when no upgrade
-## is pending. Non-empty blocks the drive-over bar from showing until the
-## coach picks one and then a player to give it to.
-var pending_upgrades: Array = []
 
 ## End of the match: the result panel counts down from END_COUNTDOWN and
 ## then leaves for the run map (hub) on its own - or the post-match
@@ -144,7 +138,9 @@ func _input(event: InputEvent) -> void:
 	if not _can_snap() or play_bar == null or not play_bar.visible:
 		return
 	# Let open panels and the pause menu keep their normal keyboard actions.
-	if card.visible or side_panel.visible or examples_panel.visible or upgrade_panel.visible or end_panel.visible:
+	if card.visible or side_panel.visible or examples_panel.visible or end_panel.visible:
+		return
+	if is_instance_valid(_event_picker) and _event_picker.get_popup().visible:
 		return
 	# Handle before GUI focus: Enter snaps even when a target or toolbar button
 	# is focused. Space remains available to activate those native controls.
@@ -155,7 +151,7 @@ func _input(event: InputEvent) -> void:
 
 func _can_snap() -> bool:
 	return not loading and sim != null and sim.phase == MatchSim.Phase.PRESNAP and not get_tree().paused \
-		and pending_upgrades.is_empty() and not _match_ended and not _leaving
+		and not _match_ended and not _leaving
 
 
 func _start_match() -> void:
@@ -184,6 +180,7 @@ func _start_match() -> void:
 	sim.set_kicker(GameState.kicker())
 	sim.set_weather(GameState.next_weather)
 	_apply_match_mods(mods)
+	sim.configure_drive_events(GameState.matches_played)
 	sim.start_match()
 	if shutdown != null:
 		sim.log_line("%s brought #%d %s to shadow your best playmaker." % [sim.opponent_name, shutdown.number, shutdown.pname])
@@ -231,7 +228,6 @@ func _build_layout() -> void:
 	_build_float_panel()
 	_build_side_panel()
 	_build_card()
-	_build_upgrade_panel()
 	_build_examples_panel()
 	_build_end_panel()
 
@@ -434,6 +430,9 @@ func _bottom_card(style: StyleBoxFlat) -> PanelContainer:
 
 func _build_play_bar() -> void:
 	play_bar = _bottom_card(_float_style(14, 6))
+	# Wrapped event text settles after the initial deferred layout. Frame the
+	# field again when the card reaches its actual size/position.
+	play_bar.item_rect_changed.connect(_update_field_inset)
 	bar_host = MarginContainer.new()
 	play_bar.add_child(bar_host)
 
@@ -456,8 +455,17 @@ func _fit_bottom_panels() -> void:
 		p.offset_bottom = -FLOAT_GAP
 	play_bar.offset_top = -_bar_height
 	float_panel.offset_top = -FLOAT_GAP
+	_update_field_inset()
+
+
+func _update_field_inset() -> void:
 	if play_bar.visible:
-		field.bottom_inset = maxf(_bar_height, size.y - play_bar.position.y)
+		var inset := maxf(_bar_height, size.y - play_bar.position.y)
+		# A new wrapped label can briefly report a very tall minimum before
+		# the container gives it a width. Keep the phase's valid inset until
+		# layout settles; item_rect_changed supplies the finished rectangle.
+		if inset < size.y - TOP_BAR_H:
+			field.bottom_inset = inset
 
 
 func _build_side_panel() -> void:
@@ -480,16 +488,6 @@ func _build_card() -> void:
 	card.visible = false
 	card.mouse_filter = Control.MOUSE_FILTER_STOP
 	add_child(card)
-
-
-func _build_upgrade_panel() -> void:
-	upgrade_panel = PanelContainer.new()
-	var sb := UIKit.stylebox(Color(UIKit.PANEL_HI, 0.99), 10, 2, UIKit.ACCENT)
-	upgrade_panel.add_theme_stylebox_override("panel", sb)
-	upgrade_panel.custom_minimum_size = Vector2(460, 0)
-	upgrade_panel.visible = false
-	upgrade_panel.mouse_filter = Control.MOUSE_FILTER_STOP
-	add_child(upgrade_panel)
 
 
 func _build_end_panel() -> void:
@@ -698,8 +696,10 @@ func _update_log() -> void:
 func _refresh_bar() -> void:
 	_last_phase = sim.phase
 	for c in bar_host.get_children():
+		bar_host.remove_child(c)
 		c.queue_free()
 	for c in float_panel.get_children():
+		float_panel.remove_child(c)
 		c.queue_free()
 	_auto_left = -1.0
 	_auto_bar = null
@@ -708,13 +708,13 @@ func _refresh_bar() -> void:
 	# Between plays and between drives the bottom bar gives way to a card
 	# floating over the field. (The match's final drive keeps the bar - see
 	# _begin_match_end.)
-	var floating := pending_upgrades.is_empty() and (sim.phase == MatchSim.Phase.DEAD
+	var floating := (sim.phase == MatchSim.Phase.DEAD
 		or (sim.phase == MatchSim.Phase.DRIVE_OVER and not _match_is_over()))
 	play_bar.visible = not floating
 	float_panel.visible = floating
 	_fit_bottom_panels.call_deferred()
 
-	field.draw_enabled = sim.phase == MatchSim.Phase.PRESNAP and pending_upgrades.is_empty()
+	field.draw_enabled = sim.phase == MatchSim.Phase.PRESNAP
 	if not field.draw_enabled:
 		field.cancel_stroke()
 
@@ -733,10 +733,6 @@ func _refresh_bar() -> void:
 		bar_host.add_theme_constant_override("margin_" + side, 8)
 	bar_host.add_theme_constant_override("margin_top", 4)
 	bar_host.add_theme_constant_override("margin_bottom", 4)
-
-	if not pending_upgrades.is_empty():
-		bar_host.add_child(_upgrade_pending_bar())
-		return
 
 	match sim.phase:
 		MatchSim.Phase.PRESNAP:
@@ -760,6 +756,7 @@ func _refresh_bar() -> void:
 func _playcall_bar() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 6)
+	v.add_child(_drive_event_notice())
 
 	var head := HBoxContainer.new()
 	head.add_theme_constant_override("separation", 12)
@@ -853,6 +850,7 @@ func _kick_button() -> Button:
 func _kick_bar() -> Control:
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 8)
+	v.add_child(_drive_event_notice())
 	var k := sim.kicker_sp
 	var pd := k.data
 
@@ -1251,8 +1249,29 @@ func _dev_defense_slider() -> Control:
 		_update_weather_label()
 		_refresh_bar())
 	row.add_child(weather_btn)
+	_event_picker = OptionButton.new()
+	_event_picker.name = "DriveEventPreview"
+	_event_picker.accessibility_name = "Preview drive event"
+	_event_picker.add_theme_font_size_override("font_size", 13)
+	for id in DriveEventDB.ALL:
+		_event_picker.add_item("DEV: " + DriveEventDB.event_name(id))
+	_event_picker.select(DriveEventDB.ALL.find(sim.drive_event))
+	_event_picker.item_selected.connect(func(index: int):
+		if sim.set_drive_event(DriveEventDB.ALL[index]):
+			_dismiss_overlays()
+			_apply_call(true)
+			_refresh_bar())
+	row.add_child(_event_picker)
 
 	return row
+
+
+func _drive_event_notice() -> Control:
+	var l := UIKit.label("THIS DRIVE • %s — %s" % [DriveEventDB.event_name(sim.drive_event),
+		DriveEventDB.description(sim.drive_event)], 14, UIKit.GOOD if sim.drive_event == DriveEventDB.AURA else UIKit.TEXT)
+	l.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	l.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	return l
 
 
 func _snap_button(caption: String) -> Button:
@@ -1311,6 +1330,8 @@ func _live_bar() -> Control:
 	row.alignment = BoxContainer.ALIGNMENT_CENTER
 	row.add_theme_constant_override("separation", 8)
 	row.add_child(UIKit.label("LIVE   ", 15, UIKit.ACCENT))
+	if sim.drive_event != DriveEventDB.NONE:
+		row.add_child(UIKit.label("%s • this drive" % DriveEventDB.event_name(sim.drive_event), 14, UIKit.TEXT))
 	if sim.kick_play:
 		row.add_child(UIKit.label("Field goal try - %d yards" % int(round(sim.kick_distance())), 13, UIKit.MUTED))
 		return row
@@ -1404,7 +1425,6 @@ func _update_auto_widgets() -> void:
 func _on_continue() -> void:
 	_auto_left = -1.0
 	_dismiss_overlays()
-	var scored := bool(sim.result.get("td", false))
 	var outcome := sim.advance()
 	if outcome["drive_over"]:
 		opponent_note = ""
@@ -1414,11 +1434,6 @@ func _on_continue() -> void:
 		if more_drives_left or sim.in_overtime:
 			opponent_note = sim.sim_opponent_drive()
 			sim.log_line(opponent_note)
-		# No point handing out a per-game upgrade for a drive that was the
-		# match's last - there's no more of the game left for it to matter in.
-		if scored and more_drives_left:
-			_start_upgrade_choice()
-			return
 	else:
 		# Walk everyone onto the new spots from wherever the after-play
 		# animations left them, rather than teleporting.
@@ -1473,118 +1488,6 @@ func _drive_over_bar() -> Control:
 			_refresh_bar())
 		v.add_child(_centered(next))
 	return v
-
-
-func _upgrade_pending_bar() -> Control:
-	var v := VBoxContainer.new()
-	v.alignment = BoxContainer.ALIGNMENT_CENTER
-	v.add_child(UIKit.label("Pick your per-game upgrade above to continue.", 16, UIKit.ACCENT))
-	return v
-
-
-# ============================================================================
-# Per-game roguelike upgrade (after a scoring drive)
-# ============================================================================
-
-## 3 fixed (player, stat, amount) combos - the coach picks one of the 3
-## directly, no separate "who gets it" step. See _assign_recipients for the
-## "at least one flex player" guarantee.
-func _start_upgrade_choice() -> void:
-	pending_upgrades = _assign_recipients(UpgradeDB.roll(sim.rng, 3))
-	_show_upgrade_choices()
-
-
-## Pairs each rolled (stat, amount) upgrade with a specific offensive player.
-## The first combo is always drawn from the flex slots (WR/RB/TE) - otherwise
-## a QB/Center/Tackle-only draw would make this choice mostly about the
-## trenches - and later combos avoid repeating an already-chosen player
-## while a fresh one is still available.
-func _assign_recipients(rolled: Array) -> Array:
-	# A "Mitosis" half from the scoring play is still standing on the field -
-	# it's the same player, so it mustn't show up as a second option.
-	var not_clone := func(sp: SimPlayer) -> bool: return sp.clone_of == null
-	var flexes: Array = sim.flex_players().filter(not_clone)
-	var everyone: Array = sim.offense.filter(not_clone)
-	var chosen: Array = []
-	var out: Array = []
-	for i in rolled.size():
-		var pool: Array = flexes if (i == 0 and not flexes.is_empty()) else everyone
-		var avail: Array = pool.filter(func(sp): return not chosen.has(sp))
-		if avail.is_empty():
-			avail = pool
-		var sp: SimPlayer = avail[sim.rng.randi_range(0, avail.size() - 1)]
-		chosen.append(sp)
-		var e: Dictionary = (rolled[i] as Dictionary).duplicate()
-		e["player"] = sp.data
-		e["slot"] = sp.slot
-		out.append(e)
-	return out
-
-
-func _show_upgrade_choices() -> void:
-	for c in upgrade_panel.get_children():
-		c.queue_free()
-	upgrade_panel.custom_minimum_size = Vector2(460, 0)
-
-	var v := VBoxContainer.new()
-	v.add_theme_constant_override("separation", 10)
-	upgrade_panel.add_child(v)
-
-	v.add_child(UIKit.label("TOUCHDOWN! PICK A BOOST", 18, UIKit.ACCENT))
-	v.add_child(UIKit.label("Lasts for the rest of this game only.", 12, UIKit.MUTED))
-	v.add_child(UIKit.rule())
-
-	for entry in pending_upgrades:
-		v.add_child(_upgrade_choice_row(entry))
-
-	upgrade_panel.visible = true
-	_center_upgrade_panel()
-
-
-func _upgrade_choice_row(entry: Dictionary) -> Control:
-	var pd: PlayerData = entry["player"]
-	var stat := String(entry.get("stat", ""))
-	var amount := int(entry.get("amount", 0))
-	var cur := pd.stat(stat) + int(sim.match_bonus_for(pd).get(stat, 0))
-	var future := cur + amount
-
-	var b := UIKit.primary_button("", 16)
-	b.custom_minimum_size = Vector2(0, 48)
-	b.pressed.connect(func(): _apply_upgrade(pd, entry))
-
-	var h := HBoxContainer.new()
-	h.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	h.set_anchors_preset(Control.PRESET_FULL_RECT)
-	h.offset_left = 10
-	h.offset_right = -10
-	h.add_theme_constant_override("separation", 8)
-
-	# This sits on a primary_button's solid ACCENT (gold) background, so every
-	# label here needs a dark color chosen explicitly - UIKit.label's default
-	# light/muted colors (and ACCENT itself) all but disappear on top of it.
-	const DARK := Color("13200f")
-	h.add_child(UIKit.label("#%d %s" % [pd.number, pd.pname], 14, DARK))
-	h.add_child(UIKit.label(pd.pos_name(), 11, Color(DARK, 0.65)))
-	var spacer := Control.new()
-	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	h.add_child(spacer)
-	h.add_child(UIKit.label(UpgradeDB.label(entry), 14, DARK))
-	h.add_child(UIKit.label("%s %d -> %d" % [UIKit.STAT_LABELS.get(stat, stat), cur, future], 12, Color(DARK, 0.75)))
-
-	b.add_child(h)
-	return b
-
-
-func _apply_upgrade(pd: PlayerData, entry: Dictionary) -> void:
-	sim.add_match_bonus(pd, String(entry.get("stat", "")), int(entry.get("amount", 0)))
-	pending_upgrades = []
-	upgrade_panel.visible = false
-	upgrade_panel.custom_minimum_size = Vector2(460, 0)
-	_refresh_bar()
-
-
-func _center_upgrade_panel() -> void:
-	_center_panel(upgrade_panel)
 
 
 func _center_panel(panel: PanelContainer) -> void:
