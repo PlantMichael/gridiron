@@ -2214,7 +2214,6 @@ func step(delta: float) -> void:
 		for sp in offense + defense:
 			if not (sp.is_offense and AbilityDB.weather_immune(sp.ability())) and not sp.melted:
 				sp.pos += hurricane_gust() * delta
-				sp.vel += hurricane_gust()
 	_clamp_inbounds()
 	if carrier != null:
 		ball_pos = carrier.pos

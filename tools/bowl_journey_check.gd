@@ -161,6 +161,26 @@ func _weather() -> void:
 	storm.offense_slot("F4").pos.y=MatchSim.FIELD_W-0.301
 	storm.step(0.02)
 	_check(storm.offense_slot("F4").pos.y<=MatchSim.FIELD_W-0.3,"gusts respect playable boundaries")
+	var displacements: Array[Vector2] = []
+	for steps in [120,240]:
+		var sustained := _make("",WeatherDB.HURRICANE)
+		sustained.snap()
+		# Start-delay players use the real hold path, which integrates velocity.
+		var held := sustained.offense_slot("F4")
+		held.pos=Vector2(60,20)
+		held.vel=Vector2.ZERO
+		held.start_delay=2.0
+		held.stunned=2.0
+		for d in sustained.defense:
+			d.pos=Vector2(109,49)
+			d.stunned=100
+		var origin := held.pos
+		for i in steps:
+			sustained.step(1.0/float(steps))
+		var moved := held.pos-origin
+		displacements.append(moved)
+		_check(sustained.phase==MatchSim.Phase.LIVE and moved.length()>0.5 and moved.length()<2.0,"one second of Hurricane gives bounded movement to a holding/stunned player at %dHz" % steps)
+	_check(displacements[0].distance_to(displacements[1])<0.02,"sustained Hurricane displacement follows elapsed time across step sizes")
 func _vegas() -> void:
 	for defense_recovers in [false,true]:
 		var s := _make(DriveEventDB.VEGAS)
