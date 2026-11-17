@@ -20,7 +20,7 @@ This UI pass does not complete priority 4’s introductions.
 | 5 | Planned | **Head variety.** Add hair and facial-hair styles. Check all facings, portraits, skin-matched hands and collars, including sideline NPCs. Suggested first batch: 8–12 generic styles. |
 | 6 | Planned | **Items and recognizable sets.** Explain set membership, equipped-piece progress and active bonuses before purchase or equipping. Define set bonuses before expanding the item pool; suggested first batch: three sets of three pieces. |
 | 7 | Planned | **More Oddity and Cursed players.** Add distinct abilities that complement existing builds and explain their strengths and drawbacks during acquisition. Keep Cursed names demon-themed. Suggested first batch: three of each. |
-| 8 | Planned | **Complete bowl identities.** Add unique players or gimmicks to the four bowls without special defenders, then review the existing Pro Bowl and Toilet Bowl effects. Explain every gimmick and provide meaningful counterplay. |
+| 8 | Venues, journeys and route events implemented; additional players planned | **Complete bowl identities.** Add unique players or gimmicks to the four bowls without special defenders, then review the existing Pro Bowl and Toilet Bowl effects. Explain every gimmick and provide meaningful counterplay. |
 
 ## Drive events: implemented first pass
 
@@ -31,7 +31,7 @@ The initial tuning values are:
 
 - Roll once at the start of each offensive drive, including the opening drive.
 - Start at 20%, add 10 percentage points per completed match, and cap at 65%.
-- Select at most one event per drive, with equal odds among the four events.
+- Select at most one event per drive, equally among the four originals and eligible route additions.
 - Announce the effect before the snap and explain its duration.
 - Clear drive-specific effects before rolling the next event.
 - Include beneficial and disruptive events, then rebalance complete runs.
@@ -47,6 +47,19 @@ The opening drive and overtime use the same roll. Redrawing routes, substitution
 and kicks do not reroll an event. Dev Mode can preview each event between plays.
 These values need full-run player balance testing before expanding items and
 bowl effects; automated correctness checks do not establish difficulty balance.
+
+## Bowl journey update
+
+Implemented the practice opener, six-destination USA map, home-city journey and
+a compact route ending at the chosen bowl. All six bowls have distinct muted
+venues; Miami adds Heat/Hurricane, with route-specific Stadium Pulse, Ad Break,
+Vegas Call and Police Investigation mixed into the original drive events.
+Police distracts defenders without stopping offense, at most twice per game.
+Existing Pro/Toilet special defenders remain final-bowl-only. Completion keys
+and saved QB marks are preserved. See README for the venue/event table.
+
+Additional unique bowl players, the introductions in priority 4, and full-run
+balance testing remain unfinished.
 
 ## Completed foundation
 

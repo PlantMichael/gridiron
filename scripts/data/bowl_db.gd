@@ -1,10 +1,44 @@
 class_name BowlDB
 extends RefCounted
 
-## The 6 bowls a run can end in - the last row of the run map (GameState
-## _build_map) - grouped in BRANCHES of 2: each stop on the row before the
-## bowls leads to one branch's pair. Each starting QB earns a permanent
-## completion mark per bowl won (see MetaState), Isaac-style.
+## Six selectable destinations with stable saved completion-mark ids.
+## Each starting QB earns a permanent mark per bowl won (MetaState).
+
+## Journey metadata shares the stable completion-mark bowl ids.
+const ROUTES := {
+	"superbowl": {"location":"California", "point":Vector2(0.12,0.64), "theme":"stadium", "weather":["rainy"], "events":["stadium_pulse","vegas_call"]},
+	"pro_bowl": {"location":"Detroit", "point":Vector2(0.69,0.29), "theme":"detroit", "weather":["snowy"], "events":["ad_break","stadium_pulse"]},
+	"alligator_bowl": {"location":"Miami", "point":Vector2(0.82,0.89), "theme":"beach", "weather":["heat","hurricane"], "events":["ad_break"]},
+	"toilet_bowl": {"location":"Philadelphia", "point":Vector2(0.85,0.38), "theme":"parking", "weather":["snowy"], "events":["bottles","police"]},
+	"gleech_bowl": {"location":"New Jersey", "point":Vector2(0.88,0.36), "theme":"park", "weather":["rainy"], "events":["bottles","vegas_call"]},
+	"olympic_bowl": {"location":"Salt Lake City, Utah", "point":Vector2(0.29,0.43), "theme":"olympic", "weather":["snowy"], "events":["stadium_pulse","ad_break"]},
+}
+## Illustrative USA coordinates; one origin covers every mascot from its city.
+## Anchorage lives in the map's Alaska inset. Preserve the generator's spelling.
+const CITY_STARTS := {
+	"Ann Arbor":Vector2(0.67,0.31), "Tallahassee":Vector2(0.72,0.77),
+	"Youngstown":Vector2(0.76,0.37), "Akron":Vector2(0.74,0.38),
+	"Columbus":Vector2(0.72,0.43), "St. Louis":Vector2(0.59,0.48),
+	"Alburquerque":Vector2(0.34,0.65), "Spokane":Vector2(0.17,0.13),
+	"Shreveport":Vector2(0.55,0.70), "Tulsa":Vector2(0.48,0.58),
+	"Tacoma":Vector2(0.08,0.16), "Irvine":Vector2(0.12,0.64),
+	"Wichita":Vector2(0.46,0.51), "Fresno":Vector2(0.10,0.54),
+	"Roanoke":Vector2(0.77,0.52), "Bakersfield":Vector2(0.10,0.59),
+	"Salt Lake City":Vector2(0.29,0.43), "Anchorage":Vector2(0.12,0.91),
+	"Fayetteville":Vector2(0.51,0.57), "Erie":Vector2(0.77,0.33),
+}
+
+static func route(id: String) -> Dictionary:
+	return ROUTES.get(id,{})
+
+static func home_city(team: String) -> String:
+	for city in CITY_STARTS:
+		if team.begins_with(String(city)+" ") or team == city:
+			return String(city)
+	return "Home field"
+
+static func home_point(team: String) -> Vector2:
+	return CITY_STARTS.get(home_city(team),Vector2(0.5,0.5))
 
 const BOWLS := {
 	"superbowl": {
@@ -36,15 +70,15 @@ const BOWLS := {
 		"branch": "wild",
 		"quality_mult": 0.95,
 		"win_bonus": 170,
-		"desc": "A swampy mid-tier bowl with teeth.",
+		"desc": "Beach football on the road to Miami.",
 		"logo_cell": Vector2i(0, 1),
 	},
 	"gleech_bowl": {
-		"name": "G. Leech Bowl",
+		"name": "Leach Bowl",
 		"branch": "grind",
 		"quality_mult": 0.85,
 		"win_bonus": 150,
-		"desc": "Named for its longtime sponsor. Nobody's proud of this one.",
+		"desc": "Public-park football on the road through New Jersey.",
 		"logo_cell": Vector2i(2, 1),
 	},
 	"toilet_bowl": {

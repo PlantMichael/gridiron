@@ -1335,7 +1335,11 @@ func _visible_range() -> Vector2i:
 
 
 func _draw_field() -> void:
-	draw_rect(Rect2(Vector2.ZERO, size), SIDELINE_GRASS)
+	var venue := FieldThemeArt.style(sim.field_theme)
+	var field_color: Color = venue.field
+	var alternate: Color = venue.alt
+	var paint_color: Color = venue.paint
+	draw_rect(Rect2(Vector2.ZERO, size), venue.ground)
 
 	var lo := _visible_range()
 	var left := to_px(Vector2(0.0, 0.0)).x
@@ -1346,12 +1350,13 @@ func _draw_field() -> void:
 	# The mow stripes run sideline to sideline and on out past them.
 	var band_start := int(floor(float(lo.x) / 5.0)) * 5
 	for x in range(band_start, lo.y + 5, 5):
-		if int(x / 5) % 2 == 1:
+		if sim.field_theme in ["practice", "park"] and int(x / 5) % 2 == 1:
 			var sy0 := to_px(Vector2(float(x + 5), 0.0)).y
 			var sy1 := to_px(Vector2(float(x), 0.0)).y
 			draw_rect(Rect2(Vector2(0.0, sy0), Vector2(size.x, sy1 - sy0)), SIDELINE_ALT)
 
-	draw_rect(Rect2(Vector2(left, top), Vector2(right - left, bottom - top)), FIELD_GRASS)
+	FieldThemeArt.draw_base(self,sim.field_theme)
+	draw_rect(Rect2(Vector2(left, top), Vector2(right - left, bottom - top)), field_color)
 
 	# Alternating five yard bands give the eye something to judge motion by.
 	for x in range(band_start, lo.y + 5, 5):
@@ -1360,7 +1365,7 @@ func _draw_field() -> void:
 		if int(x / 5) % 2 == 1:
 			var y0 := to_px(Vector2(float(x + 5), 0.0)).y
 			var y1 := to_px(Vector2(float(x), 0.0)).y
-			draw_rect(Rect2(Vector2(left, y0), Vector2(right - left, y1 - y0)), FIELD_ALT)
+			draw_rect(Rect2(Vector2(left, y0), Vector2(right - left, y1 - y0)), alternate)
 
 	# End zones.
 	for ez in [[0.0, 10.0], [110.0, 120.0]]:
@@ -1370,9 +1375,13 @@ func _draw_field() -> void:
 			var paint := Color("303e46")
 			if ez[0] != 0.0:
 				paint = JerseyDB.endzone_color(sim.defense_jersey)
+			if sim.field_theme in ["beach","parking"]:
+				paint = field_color.darkened(0.06)
 			draw_rect(Rect2(Vector2(left, y0), Vector2(right - left, y1 - y0)), paint)
 
-	_draw_grass_detail()
+	if venue.grass:
+		_draw_grass_detail()
+	FieldThemeArt.draw_scenery(self,sim.field_theme,lo)
 	# Stable scuffs are paint/grass detail, never gameplay props or collisions.
 	for i in 52:
 		var at := Vector2(14.0 + float((i * 37) % 93), 5.0 + float((i * 19) % 43))
@@ -1380,12 +1389,17 @@ func _draw_field() -> void:
 			continue
 		var dimensions := Vector2(1.6 + float(i % 4) * 0.4, 0.7) * _scale
 		draw_texture_rect(WORN_TURF, Rect2(to_px(at) - dimensions * 0.5, dimensions), false, Color(1, 1, 1, 0.34))
-	if lo.x < 68 and lo.y > 52:
-		var dimensions := Vector2(14.0, 11.4) * _scale
-		draw_texture_rect(MIDFIELD_MARK, Rect2(to_px(Vector2(60, YW * 0.5)) - dimensions * 0.5, dimensions), false, Color(1, 1, 1, 0.14))
+	if sim.field_theme != "olympic" and lo.x < 68 and lo.y > 52:
+		var mid: Texture2D = MIDFIELD_MARK
+		for bowl in BowlDB.ROUTES:
+			if BowlDB.route(bowl).theme == sim.field_theme:
+				mid = BowlDB.logo(bowl)
+				break
+		var dimensions := Vector2(14.0, 14.0) * _scale
+		draw_texture_rect(mid, Rect2(to_px(Vector2(60, YW * 0.5)) - dimensions * 0.5, dimensions), false, Color(1, 1, 1, 0.14))
 
 	# Warm, worn paint rather than a bright white frame competing with players.
-	var bw := BORDER_YARDS * _scale
+	var bw := (0.18 if sim.field_theme in ["parking","beach"] else BORDER_YARDS) * _scale
 	draw_rect(Rect2(Vector2(left - bw, top), Vector2(bw, bottom - top)), BORDER_WHITE)
 	draw_rect(Rect2(Vector2(right, top), Vector2(bw, bottom - top)), BORDER_WHITE)
 	for edge in [left - bw, right + bw]:
@@ -1396,7 +1410,7 @@ func _draw_field() -> void:
 	_draw_endzone_name(5.0, GameState.team_name, lo)
 	_draw_endzone_name(115.0, sim.opponent_name, lo)
 
-	var chalk := Color(FIELD_PAINT, 0.46)
+	var chalk := Color(paint_color, 0.46)
 	for x in range(maxi(10, band_start), mini(111, lo.y + 5)):
 		if x % 5 != 0:
 			continue
@@ -1411,7 +1425,7 @@ func _draw_field() -> void:
 			var px := to_px(Vector2(0.0, hx)).x
 			var half_tick := _scale * 0.33
 			draw_line(Vector2(px - half_tick, y), Vector2(px + half_tick, y),
-				Color(FIELD_PAINT, 0.45), maxf(1.0, _scale * 0.075))
+				Color(paint_color, 0.45), maxf(1.0, _scale * 0.075))
 
 	# Yard numbers down both sidelines.
 	var font := UIKit.FONT_BLOCK
@@ -1429,21 +1443,21 @@ func _draw_field() -> void:
 			draw_string_outline(font, Vector2(-w * 0.5, fs * 0.35), text,
 				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, 1, Color(0.08, 0.12, 0.08, 0.4))
 			draw_string(font, Vector2(-w * 0.5, fs * 0.35), text,
-				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(FIELD_PAINT, 0.62))
+				HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(paint_color, 0.62))
 			draw_set_transform(Vector2.ZERO)
 			if x != 60:
 				var tip := Vector2(px, y + (-1.0 if x > 60 else 1.0) * _scale * 1.7)
 				var direction := -1.0 if x > 60 else 1.0
 				draw_colored_polygon(PackedVector2Array([tip, tip + Vector2(-0.28, -direction * 0.5) * _scale,
-					tip + Vector2(0.28, -direction * 0.5) * _scale]), Color(FIELD_PAINT, 0.55))
+					tip + Vector2(0.28, -direction * 0.5) * _scale]), Color(paint_color, 0.55))
 
 	# Sidelines and goal lines.
-	draw_line(Vector2(left, top), Vector2(left, bottom), Color(FIELD_PAINT, 0.7), 1.5)
-	draw_line(Vector2(right, top), Vector2(right, bottom), Color(FIELD_PAINT, 0.7), 1.5)
+	draw_line(Vector2(left, top), Vector2(left, bottom), Color(paint_color, 0.7), 1.5)
+	draw_line(Vector2(right, top), Vector2(right, bottom), Color(paint_color, 0.7), 1.5)
 	for gl in [10.0, 110.0]:
 		var y := to_px(Vector2(gl, 0.0)).y
 		if y > -10.0 and y < size.y + 10.0:
-			draw_line(Vector2(left, y), Vector2(right, y), Color(FIELD_PAINT, 0.82), maxf(2.0, _scale * 0.13))
+			draw_line(Vector2(left, y), Vector2(right, y), Color(paint_color, 0.82), maxf(2.0, _scale * 0.13))
 			for lat in [-0.5, YW + 0.5]:
 				var pylon := to_px(Vector2(gl, lat))
 				var box := Rect2(pylon - Vector2(0.15, 0.3) * _scale, Vector2(0.3, 0.6) * _scale)
@@ -1697,6 +1711,7 @@ func _weather_count() -> int:
 		WeatherDB.RAINY: return RAIN_DROPS
 		WeatherDB.SNOWY: return SNOW_FLAKES
 		WeatherDB.WINDY: return WIND_STREAKS
+		WeatherDB.HURRICANE: return WIND_STREAKS*2
 	return 0
 
 
@@ -1814,7 +1829,15 @@ func _draw_event_bottles() -> void:
 
 ## Weather in the air, over everything but the stat popups.
 func _draw_weather_sky() -> void:
+	if sim.police_active():
+		var message := "POLICE CHECK  •  DEFENSE DISTRACTED"
+		var width := UIKit.FONT_BLOCK.get_string_size(message,HORIZONTAL_ALIGNMENT_LEFT,-1,20).x
+		var at := Vector2((size.x-width)*0.5,top_inset+32)
+		draw_string_outline(UIKit.FONT_BLOCK,at,message,HORIZONTAL_ALIGNMENT_LEFT,-1,20,5,Color(0,0,0,0.8))
+		draw_string(UIKit.FONT_BLOCK,at,message,HORIZONTAL_ALIGNMENT_LEFT,-1,20,UIKit.ACCENT)
 	match sim.weather:
+		WeatherDB.HEAT:
+			draw_rect(Rect2(Vector2.ZERO,size),Color(0.55,0.32,0.08,0.06))
 		WeatherDB.RAINY:
 			draw_rect(Rect2(Vector2.ZERO, size), RAIN_TINT)
 			for pt in _wx:
@@ -1824,7 +1847,7 @@ func _draw_weather_sky() -> void:
 		WeatherDB.SNOWY:
 			for pt in _wx:
 				draw_circle(pt["p"], float(pt["size"]), Color(1.0, 1.0, 1.0, 0.85))
-		WeatherDB.WINDY:
+		WeatherDB.WINDY, WeatherDB.HURRICANE:
 			for pt in _wx:
 				var p2: Vector2 = pt["p"]
 				var len: float = pt["size"]
@@ -2556,6 +2579,13 @@ func _capsule(a: Vector2, b: Vector2, width: float, col: Color) -> void:
 
 
 func _draw_ball() -> void:
+	if sim.vegas_loose_left > 0.0 or (sim.phase == MatchSim.Phase.DEAD and bool(sim.result.get("fumble",false))):
+		var at := to_px(sim.ball_pos)
+		var radius := maxf(5.0,_scale*0.3)
+		draw_circle(at+Vector2(1,2),radius,Color(0,0,0,0.3))
+		draw_circle(at,radius,UIKit.BALL)
+		draw_line(at-Vector2(radius*0.5,0),at+Vector2(radius*0.5,0),UIKit.CHALK,1,true)
+		return
 	# Held for the kick, on the spot.
 	if (sim.kick_mode or sim.kick_play) and not sim.ball_in_air and sim.phase != MatchSim.Phase.DEAD \
 			and sim.phase != MatchSim.Phase.DRIVE_OVER:

@@ -67,8 +67,8 @@ var last_result: Dictionary = {}        # filled in by the match scene
 ## credit the completion mark to the right QB - see MetaState.award_mark.
 var qb_id: int = -1
 
-## The bowl this run is playing for (BowlDB id) - set once the coach picks a
-## bowl stop on the map, "" until then.
+## The destination chosen after the opener. Saved bowl ids remain stable;
+## actual final-bowl behavior still checks is_bowl_match().
 var chosen_bowl: String = ""
 
 ## The chalk. Flex slot name ("F0".."F4") -> Array of Vector2 waypoints,
@@ -647,7 +647,7 @@ func match_win_bonus() -> int:
 ## `tied` - level after overtime: no life lost, but no win either.
 func finish_match(won: bool, tied: bool = false) -> void:
 	matches_played += 1
-	next_weather = WeatherDB.roll(rng)
+	next_weather = WeatherDB.CLEAR if chosen_bowl.is_empty() else WeatherDB.roll_for_bowl(rng, chosen_bowl)
 	var node := target_node()
 	var was_bowl := is_bowl_match()
 	if not node.is_empty():
@@ -689,13 +689,9 @@ func round_label() -> String:
 
 # --- The run map ------------------------------------------------------------
 #
-# A run is a Slay the Spire-style map: BOWL_ROW + 1 rows of stops, each stop
-# linked to 1-2 in the next row, walked from row 0 to one of the 6 bowls at
-# the end. MATCH_ROWS are matches (sometimes an Elite), STOP_ROWS are
-# everything else, and PRE_BOWL_ROW is one last Shop or Practice per bowl
-# pair. Five matches a run, same as the old bracket. The shop exists only as
-# a stop on the map, and the Ritual Site and Laboratory are stops you choose
-# to go to rather than things a match unlocks.
+# The opener leads to a six-destination USA choice. The selected journey has
+# two lanes at most, four build-up match tiers and one final bowl. Stops keep
+# their existing shop/challenge identities and the run still permits three losses.
 
 const STOP_MATCH := "match"
 const STOP_ELITE := "elite"
@@ -710,11 +706,6 @@ const MATCH_ROWS := [0, 2, 4, 6]   # index in this list = difficulty tier
 const STOP_ROWS := [1, 3, 5]
 const PRE_BOWL_ROW := 7
 const BOWL_ROW := 8
-## Relative odds of each stop type on a STOP_ROWS row. Every such row gets at
-## least one Shop regardless, and at most one Ritual Site and one Laboratory.
-const STOP_WEIGHTS := {
-	STOP_SHOP: 0.3, STOP_MYSTERY: 0.3, STOP_PRACTICE: 0.2, STOP_RITUAL: 0.1, STOP_LAB: 0.1,
-}
 ## Odds a match row past the first has an Elite in it (at most one per row):
 ## a tougher defense with an extra guaranteed aura, a bigger win bonus, and a
 ## free item for winning it. Rivals will live here later.
@@ -779,7 +770,7 @@ func target_node() -> Dictionary:
 ## The stops you can go to next, as Vector2i(row, col).
 func reachable() -> Array[Vector2i]:
 	var out: Array[Vector2i] = []
-	if run_complete or not run_active or run_map.is_empty():
+	if run_complete or not run_active or run_map.is_empty() or needs_bowl_choice():
 		return out
 	if map_row < 0:
 		for c in (run_map[0] as Array).size():
@@ -961,6 +952,7 @@ func grant_elite_item() -> String:
 	return id
 
 
+## New runs contain only the opener until the coach chooses a destination.
 func _build_map() -> void:
 	run_map.clear()
 	map_row = -1
@@ -970,78 +962,64 @@ func _build_map() -> void:
 	run_complete = false
 	bowl_won = false
 	chosen_bowl = ""
+	_append_map_row(0, [STOP_MATCH], {})
+
+
+func needs_bowl_choice() -> bool:
+	return not dev_mode and run_active and not run_complete and matches_played >= 1 and chosen_bowl.is_empty()
+
+
+func choose_destination(bowl_id: String) -> bool:
+	if not needs_bowl_choice() or not BowlDB.ROUTES.has(bowl_id):
+		return false
+	chosen_bowl = bowl_id
 	var events_used := {}
-	for r in BOWL_ROW + 1:
-		var types: Array = _row_types(r)
-		var row: Array = []
-		for c in types.size():
-			var t := String(types[c])
-			var node := {"type": t, "row": r, "col": c, "next": [],
-				"y": (float(c) + 0.5) / float(types.size()), "done": false, "result": ""}
-			if r == BOWL_ROW:
-				node["bowl_id"] = _bowl_order()[c]
-			if is_match_stop(t):
-				node["opponent"] = _make_opponent(r, node)
-			if STOP_CHALLENGES.has(t):
-				node["locked"] = true
-			if t == STOP_MYSTERY:
-				var ev := EventDB.random_id(rng, events_used)
-				node["event"] = ev
-				events_used[ev] = true
-			row.append(node)
-		run_map.append(row)
+	for r in range(1, BOWL_ROW + 1):
+		_append_map_row(r, _row_types(r), events_used)
 	for r in BOWL_ROW:
 		_link_rows(r)
+	next_weather = WeatherDB.roll_for_bowl(rng, chosen_bowl)
+	return true
 
 
-## The 6 bowls in map order, each branch's pair side by side (BowlDB.BRANCHES).
-func _bowl_order() -> Array:
-	var out: Array = []
-	for b in BowlDB.all_branches():
-		out.append_array(BowlDB.bowls_in_branch(b))
-	return out
+func current_field_theme() -> String:
+	if chosen_bowl.is_empty() or matches_played == 0:
+		return "practice"
+	return String(BowlDB.route(chosen_bowl).get("theme", "practice"))
+
+
+func _append_map_row(r: int, types: Array, events_used: Dictionary) -> void:
+	var row: Array = []
+	for c in types.size():
+		var t := String(types[c])
+		var node := {"type":t, "row":r, "col":c, "next":[],
+			"y":(float(c)+0.5)/float(types.size()), "done":false, "result":""}
+		if r == BOWL_ROW:
+			node["bowl_id"] = chosen_bowl
+		if is_match_stop(t):
+			node["opponent"] = _make_opponent(r,node)
+		if STOP_CHALLENGES.has(t):
+			node["locked"] = true
+		if t == STOP_MYSTERY:
+			var ev := EventDB.random_id(rng,events_used)
+			node["event"] = ev
+			events_used[ev] = true
+		row.append(node)
+	run_map.append(row)
 
 
 func _row_types(r: int) -> Array:
-	var out: Array = []
 	if r == BOWL_ROW:
-		for i in _bowl_order().size():
-			out.append(STOP_BOWL)
-		return out
+		return [STOP_BOWL]
 	if r == PRE_BOWL_ROW:
-		# One per bowl pair. Mostly shops - a last chance to spend before the
-		# bowl - with the odd Practice.
-		for i in BowlDB.all_branches().size():
-			out.append(STOP_PRACTICE if rng.randf() < 0.34 else STOP_SHOP)
-		if not out.has(STOP_SHOP):
-			out[rng.randi_range(0, out.size() - 1)] = STOP_SHOP
-		return out
-	var count := 3 if r == 0 else rng.randi_range(3, 4)
+		return [STOP_SHOP]
 	if MATCH_ROWS.has(r):
-		var elite_at := -1
-		if r > 0 and rng.randf() < ELITE_ROW_CHANCE:
-			elite_at = rng.randi_range(0, count - 1)
-		for i in count:
-			out.append(STOP_ELITE if i == elite_at else STOP_MATCH)
-		return out
-	for i in count:
-		out.append(_weighted_stop())
-	# At most one Ritual Site and one Laboratory per row; at least one Shop.
-	for once in [STOP_RITUAL, STOP_LAB]:
-		var seen := false
-		for i in out.size():
-			if out[i] == once:
-				if seen:
-					out[i] = STOP_MYSTERY
-				seen = true
-	if not out.has(STOP_SHOP):
-		out[rng.randi_range(0, out.size() - 1)] = STOP_SHOP
-	return out
-
-
-func _weighted_stop() -> String:
-	var i := DataUtil.weighted_index(rng, STOP_WEIGHTS.values())
-	return String(STOP_WEIGHTS.keys()[i]) if i >= 0 else STOP_MYSTERY
+		return [STOP_MATCH, STOP_ELITE if rng.randf() < ELITE_ROW_CHANCE else STOP_MATCH]
+	if r == 1:
+		return [STOP_SHOP, STOP_PRACTICE]
+	if r == 3:
+		return [STOP_SHOP, STOP_LAB if rng.randf() < 0.5 else STOP_RITUAL]
+	return [STOP_SHOP, STOP_MYSTERY if rng.randf() < 0.65 else STOP_PRACTICE]
 
 
 ## The opponent for a match/elite/bowl stop: a fresh team name at that row's
@@ -1061,6 +1039,8 @@ func _make_opponent(row: int, node: Dictionary) -> Dictionary:
 		"drives": int(tier_info["drives"]),
 		"result": "",
 	}
+	if row == 0:
+		opp["round"] = "Home field opener"
 	if t == STOP_ELITE:
 		opp["quality"] = quality + ELITE_QUALITY_BONUS
 		opp["round"] = "%s - Elite" % tier_info["round"]
@@ -1076,7 +1056,7 @@ func _make_opponent(row: int, node: Dictionary) -> Dictionary:
 ## Connects row `r` to row `r + 1`. Each stop leads to the next-row stop at
 ## its matching height plus, sometimes, a neighbor - so paths branch without
 ## the lines crossing all over - then every next-row stop gets a way in. The
-## pre-bowl row leads each stop to its own bowl pair, and every stop leading
+## final Shop leads to the selected bowl, and every stop leading
 ## into the middle stop row or the pre-bowl row can always reach a Shop.
 func _link_rows(r: int) -> void:
 	var a: Array = run_map[r]

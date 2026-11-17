@@ -88,6 +88,8 @@ var opponent_quality: float = 6.0
 var opponent_name: String = "Opponent"
 ## The opponent's jersey colour this match (JerseyDB) - purely visual.
 var defense_jersey: String = JerseyDB.BLUE
+## Presentation context supplied by the run before loading/reveal.
+var field_theme: String = "practice"
 
 ## Set by match.gd before start_match() when this is the run's final, chosen
 ## bowl game - see AbilityDB's "bowl_jitters" and _snap_context's
@@ -108,6 +110,14 @@ var puddles: Array = []
 var drive_event: String = DriveEventDB.NONE
 var drive_event_depth: int = 0
 var _drive_events_enabled := false
+var _drive_event_pool: Array = []
+var police_uses := 0
+var _police_drive := -1
+var _police_until := -1.0
+var vegas_loose_left := 0.0
+var _vegas_fired := false
+var _vegas_carrier: SimPlayer
+var _vegas_yards := 0.0
 var oil_spills: Array = []       # {pos: Vector2, r: float}, fixed for this drive
 var bottles: Array = []          # {from, pos, impact_at, impacted}; play-local
 var _bottles_thrown := 0
@@ -329,6 +339,12 @@ func setup(starters: Array, defense_data: Array, quality: float, opp_name: Strin
 	drive_event = DriveEventDB.NONE
 	drive_event_depth = 0
 	_drive_events_enabled = false
+	_drive_event_pool = DriveEventDB.GENERIC.duplicate()
+	police_uses = 0
+	_police_drive = -1
+	_police_until = -1.0
+	field_theme = "practice"
+	_reset_vegas()
 	oil_spills.clear()
 	bottles.clear()
 	_bottles_thrown = 0
@@ -580,15 +596,19 @@ func begin_drive() -> void:
 		sp.stat_decay = 0
 	for sp in defense:
 		sp.energy = minf(1.0, sp.energy + 0.55)
-	set_drive_event(DriveEventDB.roll(rng, drive_event_depth) if _drive_events_enabled else DriveEventDB.NONE)
+	var pool := _drive_event_pool.duplicate()
+	if police_uses >= 2:
+		pool.erase(DriveEventDB.POLICE)
+	set_drive_event(DriveEventDB.roll(rng, drive_event_depth, pool) if _drive_events_enabled else DriveEventDB.NONE)
 	log_line("--- Drive %d of %d, ball on the %s ---" % [drive_num, total_drives, yard_line_text(los)])
 	if drive_event != DriveEventDB.NONE:
 		log_line("THIS DRIVE: %s — %s" % [DriveEventDB.event_name(drive_event), DriveEventDB.description(drive_event)])
 
 
-func configure_drive_events(depth: int) -> void:
+func configure_drive_events(depth: int, bowl_id: String = "") -> void:
 	_drive_events_enabled = true
 	drive_event_depth = maxi(0, depth)
+	_drive_event_pool = DriveEventDB.pool_for_bowl(bowl_id)
 
 
 ## Production drive transition and the Dev preview use the same application
@@ -650,6 +670,13 @@ func _remove_event_defender() -> void:
 
 
 func _step_drive_event() -> void:
+	if drive_event == DriveEventDB.POLICE and police_uses < 2 and _police_drive != drive_num and time >= 2.2:
+		_police_drive = drive_num
+		police_uses += 1
+		_police_until = time + 0.9
+		for d in defense:
+			d.stunned = maxf(d.stunned,0.9)
+		log_line("POLICE INVESTIGATION: the defense is distracted — keep moving! (%d/2)" % police_uses)
 	if drive_event != DriveEventDB.BOTTLES:
 		return
 	if _bottles_thrown < 3 and time >= 0.75 + 3.0 * _bottles_thrown:
@@ -807,6 +834,8 @@ func set_play(id: String, instant: bool = true) -> void:
 
 ## Shared reset + alignment for both call paths. `play` must already be set.
 func _begin_call(instant: bool, walk: bool = false) -> void:
+	_police_until = -1.0
+	_reset_vegas()
 	time = 0.0
 	bottles.clear()
 	_bottles_thrown = 0
@@ -971,6 +1000,9 @@ func _apply_modifiers(sp: SimPlayer, ctx: Dictionary) -> void:
 	if sp.is_offense and drive_event == DriveEventDB.AURA:
 		for key in DriveEventDB.AURA_STATS:
 			base[key] = int(base[key]) + 1
+	var route_delta := _route_stat_delta(sp.is_offense)
+	for key in STAT_KEYS:
+		base[key] = int(base[key]) + route_delta
 	_apply_weather(sp, base)
 	var agi_cap := AbilityDB.speed_cap(sp.ability())
 	if agi_cap < 99:
@@ -990,6 +1022,8 @@ func _apply_weather(sp: SimPlayer, base: Dictionary) -> void:
 	if weather == WeatherDB.SNOWY and sp.is_offense and _snow_immune(sp):
 		return
 	match weather:
+		WeatherDB.HEAT:
+			base["stamina"] = int(base["stamina"]) - 2
 		WeatherDB.WINDY:
 			if sp.is_offense and sp.slot == "QB":
 				var dex := int(base["dexterity"])
@@ -2153,6 +2187,9 @@ func step(delta: float) -> void:
 	if phase != Phase.LIVE:
 		return
 	time += delta
+	if vegas_loose_left > 0.0:
+		_step_vegas_recovery(delta)
+		return
 	if kick_play:
 		_step_kick(delta)
 		if phase == Phase.LIVE and time > MAX_PLAY_TIME:
@@ -2167,10 +2204,22 @@ func step(delta: float) -> void:
 	var pocket_qb := offense_slot("QB")
 	if pocket_qb != null and pocket_qb.has_ball and not qb_scrambling:
 		_pocket_hold = time
+	var previous_carrier: SimPlayer = carrier
+	var previous_position := carrier.pos if carrier != null else Vector2.ZERO
 	_step_offense(delta)
 	_step_defense(delta)
 	_step_props(delta)
 	_step_ball(delta)
+	if weather == WeatherDB.HURRICANE:
+		for sp in offense + defense:
+			if not (sp.is_offense and AbilityDB.weather_immune(sp.ability())) and not sp.melted:
+				sp.pos += hurricane_gust() * delta
+				sp.vel += hurricane_gust()
+	_clamp_inbounds()
+	if carrier != null:
+		ball_pos = carrier.pos
+	if _step_vegas(previous_carrier,previous_position):
+		return
 	_step_contacts(delta)
 	if phase == Phase.LIVE:
 		_step_synergies(delta)
@@ -3576,7 +3625,7 @@ func _step_contacts(delta: float) -> void:
 
 	# Coverage: defenders jam receivers off their routes.
 	for d in defense:
-		if d.role != SimPlayer.Role.MAN or d.mark == null:
+		if d.stunned > 0.0 or d.role != SimPlayer.Role.MAN or d.mark == null:
 			continue
 		if d.pos.distance_to(d.mark.pos) > 1.6:
 			continue
@@ -4040,7 +4089,7 @@ func _kicker_stat(key: String) -> int:
 	var base := kicker_sp.data.stat(key)
 	var mods := ItemDB.total_stat_mods(kicker_sp.data.items)
 	var aura := 1 if drive_event == DriveEventDB.AURA and DriveEventDB.AURA_STATS.has(key) else 0
-	return clampi(base + int(mods.get(key, 0)) + int(_kicker_assist().get(key, 0)) + aura, 1, 15)
+	return clampi(base + int(mods.get(key, 0)) + int(_kicker_assist().get(key, 0)) + aura + _route_stat_delta(true), 1, 15)
 
 
 ## Stat deltas the kicker gets from teammates' abilities (AbilityDB.
@@ -4555,3 +4604,68 @@ func _end_synergies() -> void:
 	for sp in offense:
 		if sp.clone_of == null:
 			_bench_energy[sp.data] = sp.energy
+
+
+## Drive effects are derived at the snap; no card or match-bonus mutation.
+func _route_stat_delta(offense_side: bool) -> int:
+	if drive_event == DriveEventDB.AD_BREAK:
+		return -1
+	if drive_event == DriveEventDB.PULSE:
+		if (offense_side and score_us < score_them) or (not offense_side and score_them < score_us):
+			return 1
+	return 0
+
+func hurricane_gust() -> Vector2:
+	return Vector2(sin(time*0.65)*0.8,cos(time*0.4)*1.3)
+
+func police_active() -> bool:
+	return time < _police_until and drive_event == DriveEventDB.POLICE and phase == Phase.LIVE
+
+func _reset_vegas() -> void:
+	vegas_loose_left = 0.0
+	_vegas_fired = false
+	_vegas_carrier = null
+	_vegas_yards = 0.0
+
+func _step_vegas(previous: SimPlayer, from: Vector2) -> bool:
+	if drive_event != DriveEventDB.VEGAS or _vegas_fired or phase != Phase.LIVE or carrier == null or not carrier.is_offense:
+		return false
+	if carrier != _vegas_carrier:
+		_vegas_carrier = carrier
+		_vegas_yards = 0.0
+	if carrier == previous:
+		_vegas_yards += carrier.pos.distance_to(from)
+	if _vegas_yards < 10.0 or carrier.pos.x >= GOAL_LINE or carrier.pos.y <= 0.3 or carrier.pos.y >= FIELD_W-0.3:
+		return false
+	_vegas_fired = true
+	vegas_loose_left = 0.6
+	ball_pos = carrier.pos
+	carrier.has_ball = false
+	carrier.stunned = maxf(carrier.stunned,0.8)
+	carrier.pending_events.append("FUMBLE")
+	log_line("VEGAS CALL! %s loses the ball after ten carried yards." % carrier.data.pname)
+	return true
+
+func _step_vegas_recovery(delta: float) -> void:
+	vegas_loose_left = maxf(0.0,vegas_loose_left-delta)
+	for sp in offense + defense:
+		if not sp.melted:
+			sp.move_toward_point(ball_pos,delta,1.0)
+	_clamp_inbounds()
+	_record_trails()
+	if vegas_loose_left > 0.0:
+		return
+	var nearest: SimPlayer = null
+	var distance := INF
+	for sp in offense + defense:
+		if sp.melted or sp.stunned > 0.0:
+			continue
+		var d: float = sp.pos.distance_to(ball_pos)
+		if d < distance:
+			distance = d
+			nearest = sp
+	var turnover := nearest != null and not nearest.is_offense and not nearest.turned
+	var who: String = nearest.data.pname if nearest != null else "the offense"
+	_end_play({"kind":"complete" if _pass_completed_this_play else "run", "fumble":true,
+		"yards":ball_pos.x-los,"turnover":turnover,
+		"text":"Vegas Call: fumble recovered by %s%s." % [who," — turnover" if turnover else ""]})

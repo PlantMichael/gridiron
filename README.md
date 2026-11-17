@@ -4,7 +4,7 @@ See [the development roadmap](ROADMAP.md) for completed milestones and the next
 planned changes.
 
 A 2D football roguelike in Godot 4.7. You coach the offense of one team across a
-branching run map that ends in one of six bowls. Every match is 4-5 drives; you set the lineup, hand out items,
+practice opener followed by a USA journey to your chosen bowl. Every match is 4-5 drives; you set the lineup, hand out items,
 and then **draw the routes** — each of your five flex players starts with 30 yards of chalk (abilities can change it),
 and you drag his route straight onto the field before the snap. The play then
 simulates in real time and the QB throws to whoever actually gets open. Football
@@ -135,7 +135,7 @@ abilities and bonuses from run-map events still work.
 
 Every offensive drive, including the opening drive and overtime, rolls once for
 an event: 20% initially, plus 10 percentage points per completed match, capped at
-65%. A successful roll chooses one of four events with equal odds:
+65%. A successful roll chooses equally among the original four events and the selected route's additions:
 
 - **Oil Spill:** three dark, rimmed patches slow both teams to 65% speed. Avoid
   them with your routes. Rain and oil use the stronger slowdown; weather immunity
@@ -363,15 +363,15 @@ card states the effect. So far: the Pro Bowl's Deshawn the Destroyer (your RBs
 -4 Agility) and the Toilet Bowl's Marcus Williams, the Iron Wall (your four T
 slots' abilities are negated - `SimPlayer.ability_negated`; every ability
 lookup in the sim goes through `SimPlayer.ability()` for this reason).
-Weather still rolls for bowl games as usual.
+These named defenders appear only in the final bowl, not its road matches.
 
 **The run map** (`GameState._build_map`, drawn by `map_view.gd` on the hub).
-A run is a Slay the Spire-style map of 9 rows walked left to right, each
-stop linked to 1-2 in the next row. Rows 0/2/4/6 are matches - tiers 0-3 of
-`bracket`, sometimes an **Elite** (+0.6 quality, an extra aura, 1.5x win
-bonus, a free item) - rows 1/3/5 are other stops, row 7 is one last Shop or
-Practice per bowl pair, and row 8 is the 6 bowls (`bracket`'s 5th tier
-times the bowl's `quality_mult`). Five matches a run, like the old bracket.
+QB selection starts a clear-weather practice-ground match. After that game,
+choose one of six destinations on the USA map. The journey draws from your
+generated team's home city and opens an itinerary with at most two choices per
+middle row. Rows 0/2/4/6 are matches, rows 1/3/5 are other stops, row 7 is a
+final Shop and row 8 is only your selected bowl. Road matches may be **Elite**
+(+0.6 quality, an extra aura, 1.5x win bonus and a free item). Five matches remain.
 Losing a match costs a life (`GameState._apply_loss`) and the win bonus,
 but you still move on; losing the bowl ends the run.
 
@@ -404,6 +404,40 @@ The non-match stops:
   `_step_melts`; a Mitosis half is a second `SimPlayer` sharing the original's
   `PlayerData`, appended to `offense` for one play and dropped by
   `_remove_clones` before the next call.
+
+## Bowl destinations and field styles
+
+The opener is a tree-lined practice field. Road matches and the final use the
+selected destination's muted scenery, keeping players and routes prominent.
+
+| Bowl | Venue | Route weather | Extra drive events |
+|---|---|---|---|
+| Superb | California stadium | Rain | Stadium Pulse, Vegas Call |
+| Pro | Detroit stadium, blue-grey turf | Snow | Ad Break, Stadium Pulse |
+| Alligator | Miami beach | Heat, Hurricane | Ad Break |
+| Toilet | Philadelphia parking lot, chalk lines | Snow | Police Investigation, Angry Fans |
+| Leach | New Jersey public park | Rain | Vegas Call, Angry Fans |
+| Olympic | Salt Lake City track stadium | Snow | Stadium Pulse, Ad Break |
+
+Forecasts can also be clear; mystery stops can still override them. Heat costs
+both teams two stamina, respecting Weatherproof. Hurricane pushes players in
+predictable live-play gusts; Weatherproof players resist them. Stadium Pulse
+adds one to all effective stats for the losing team (none when tied). Ad Break
+subtracts one from both teams for that drive. Both include the kicker and obey
+normal stat caps, without changing player cards.
+
+Vegas Call causes one fumble per play after ten yards carried with possession.
+The ball is loose for 0.6 seconds: the nearest eligible player recovers, ending
+the play with retained yards or a defensive turnover. Air yards do not count.
+Police Investigation briefly distracts defenders after 2.2 live seconds while
+your offense continues. It happens at most once in its selected drive and twice
+per game; kicks are exempt. Angry Fans is the existing bottle event.
+
+Field art lives in `FieldThemeArt`, drawn by `FieldView`; scenery has no gameplay
+collisions. The Leach Bowl keeps its original `gleech_bowl` completion key.
+Run `godot --headless --path . res://tools/bowl_journey_check.tscn` for route,
+weather/event, save/reload and real QB-to-destination-to-match checks. Use an
+isolated test APPDATA directory when running checks that write completion marks.
 
 ## Test and tuning harnesses
 

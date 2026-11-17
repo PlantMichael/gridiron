@@ -11,14 +11,18 @@ const CLEAR := "clear"
 const WINDY := "windy"
 const RAINY := "rainy"
 const SNOWY := "snowy"
+const HEAT := "heat"
+const HURRICANE := "hurricane"
 
 ## Order the dev-mode Weather button cycles through.
-const ALL := [CLEAR, WINDY, RAINY, SNOWY]
+const ALL := [CLEAR, WINDY, RAINY, SNOWY, HEAT, HURRICANE]
 
 const WEATHER := {
 	CLEAR: {"name": "Clear", "desc": "No weather effects."},
 	WINDY: {"name": "Windy", "desc": "Quarterbacks have -2 Dexterity (never below 2)."},
 	RAINY: {"name": "Rainy", "desc": "Every player has -2 Agility. Puddles form on the field and slow anyone who runs through them."},
+	HEAT: {"name":"Intense Heat", "desc":"Both teams have -2 Stamina. Weatherproof is immune."},
+	HURRICANE: {"name":"Hurricane", "desc":"Predictable gusts push players around. Weatherproof is immune."},
 	SNOWY: {"name": "Snowy", "desc": "Every player has -2 Strength."},
 }
 
@@ -58,3 +62,11 @@ static func roll(rng: RandomNumberGenerator) -> String:
 static func next_in_cycle(id: String) -> String:
 	var i := ALL.find(id)
 	return ALL[(i + 1) % ALL.size()]
+
+
+static func roll_for_bowl(rng: RandomNumberGenerator, bowl_id: String) -> String:
+	var weights := {CLEAR:4.0}
+	for condition in BowlDB.route(bowl_id).get("weather", []):
+		weights[condition] = 2.0
+	var index := DataUtil.weighted_index(rng, weights.values())
+	return String(weights.keys()[index]) if index >= 0 else CLEAR

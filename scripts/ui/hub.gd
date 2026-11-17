@@ -41,11 +41,12 @@ func _build() -> void:
 	margin.add_child(root)
 
 	var lives_left := GameState.MAX_LOSSES - GameState.losses
+	var stage := "Choose a bowl" if GameState.needs_bowl_choice() else GameState.round_label()
 	root.add_child(UIKit.header(GameState.team_name, "Next: %s   -   %d loss%s left before the season is over" % [
-		GameState.round_label(), lives_left, "" if lives_left == 1 else "es"]))
+		stage, lives_left, "" if lives_left == 1 else "es"]))
 
-	# The season's schedule, inked on a coach's sheet (see map_view.gd).
-	var map_panel := PlayCard.new()
+	# A USA overview and compact journey itinerary (see map_view.gd).
+	var map_panel := UIKit.panel(Color("1d3038"))
 	map_panel.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root.add_child(map_panel)
 	_map = MapView.new()
@@ -53,6 +54,10 @@ func _build() -> void:
 	_map.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	_map.set("selected", _sel)
 	_map.connect("stop_clicked", _on_stop_clicked)
+	_map.connect("destination_chosen", func(id: String):
+		if GameState.choose_destination(id):
+			_sel = Vector2i(-1,-1)
+			_rebuild())
 	map_panel.add_child(_map)
 
 	var bottom := HBoxContainer.new()
@@ -92,6 +97,12 @@ func _is_current_shop(row: int, col: int) -> bool:
 
 
 func _fill_detail() -> void:
+	if GameState.needs_bowl_choice():
+		_detail.add_child(UIKit.label("PICK YOUR DESTINATION",22,UIKit.ACCENT))
+		var description := UIKit.label("The opener is in the books. Choose a bowl on the USA map. Your journey starts in %s, with route-specific fields, weather and events mixed into the existing drive events." % BowlDB.home_city(GameState.team_name),16,UIKit.TEXT)
+		description.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_detail.add_child(description)
+		return
 	if _sel.x < 0:
 		_detail.add_child(UIKit.label("PICK YOUR NEXT STOP", 18, UIKit.ACCENT))
 		var hint := UIKit.label("The stops you can reach next are pulsing on the map. Click one to see what's there.", 14, UIKit.MUTED)

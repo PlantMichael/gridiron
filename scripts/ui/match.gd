@@ -178,7 +178,8 @@ func _start_match() -> void:
 	sim.set_kicker(GameState.kicker())
 	sim.set_weather(GameState.next_weather)
 	_apply_match_mods(mods)
-	sim.configure_drive_events(GameState.matches_played)
+	sim.field_theme = GameState.current_field_theme()
+	sim.configure_drive_events(GameState.matches_played, GameState.chosen_bowl)
 	sim.start_match()
 	if shutdown != null:
 		sim.log_line("%s brought #%d %s to shadow your best playmaker." % [sim.opponent_name, shutdown.number, shutdown.pname])

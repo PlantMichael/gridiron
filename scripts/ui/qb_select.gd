@@ -146,7 +146,8 @@ func _select_button(id: int) -> Button:
 		b.add_theme_stylebox_override(state, UIKit.stylebox(looks[state], 0, 2, UIKit.INK))
 	b.pressed.connect(func():
 		GameState.new_run(0, id)
-		get_tree().change_scene_to_file("res://scenes/hub.tscn"))
+		GameState.select_match(0, 0)
+		LoadingScreen.go_to("res://scenes/match.tscn"))
 	return b
 
 
