@@ -4089,7 +4089,12 @@ func _kicker_stat(key: String) -> int:
 	var base := kicker_sp.data.stat(key)
 	var mods := ItemDB.total_stat_mods(kicker_sp.data.items)
 	var aura := 1 if drive_event == DriveEventDB.AURA and DriveEventDB.AURA_STATS.has(key) else 0
-	return clampi(base + int(mods.get(key, 0)) + int(_kicker_assist().get(key, 0)) + aura + _route_stat_delta(true), 1, 15)
+	var effective := base + int(mods.get(key, 0)) + int(_kicker_assist().get(key, 0)) + aura + _route_stat_delta(true)
+	# The live kicking calculation must retain the same card-stat floor as
+	# _apply_stat_shield; field alignment alone does not feed kick physics.
+	if _team_blocks_stat_loss():
+		effective = maxi(effective,base)
+	return clampi(effective,1,15)
 
 
 ## Stat deltas the kicker gets from teammates' abilities (AbilityDB.

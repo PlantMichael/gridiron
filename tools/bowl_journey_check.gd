@@ -130,6 +130,17 @@ func _modifiers() -> void:
 		capped.set_drawn_call({})
 		capped.snap()
 		_check(capped.offense_slot("C").stat("strength")==fixture[2] and capped._kicker_stat("strength")==fixture[2],"route effects respect normal stat caps")
+	for shield in [false,true]:
+		var kick := _make()
+		if shield:
+			kick.offense_slot("C").data.ability_id="stat_shield"
+		kick.set_drawn_call({})
+		kick.set_kick_mode(true)
+		var range_before := kick.kick_range()
+		var dex_before := kick._kick_dex(kick.kick_line(),false)
+		kick.set_drive_event(DriveEventDB.AD_BREAK)
+		kick.snap()
+		_check(kick.kick_play and is_equal_approx(kick.kick_range(),range_before-(0.0 if shield else MatchSim.KICK_RANGE_PER_STR)) and kick._kick_dex(kick.kick_line(),false)==dex_before-(0 if shield else 1),"actual Ad Break kick range/accuracy respects Stat Shield="+str(shield))
 func _weather() -> void:
 	var hot := _make("",WeatherDB.HEAT)
 	hot.offense_slot("F0").data.ability_id="weatherproof"
