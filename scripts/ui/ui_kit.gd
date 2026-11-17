@@ -424,14 +424,8 @@ static func player_portrait(p: PlayerData, size: int = 56) -> Control:
 	return box
 
 
-## A bowl's logo (BowlDB.logo) on a white card backing, sized to `size`.
-## The sheet's cells are opaque white squares rather than transparent
-## cutouts, so this leans into that as a deliberate patch/badge look
-## instead of fighting it. `dim` greys out an unearned bowl - see
-## qb_select.gd's completion marks.
-## `boxed` sits the logo on a white rounded tile; without it the cut-out logo
-## is drawn straight onto whatever's behind it. `dim` greys it out (a bowl
-## not yet won).
+## A transparent bowl badge, optionally on a white rounded tile.
+## `dim` greys out an unearned QB completion mark.
 static func bowl_badge(bowl_id: String, size: int = 64, dim: bool = false, boxed: bool = true) -> Control:
 	var tex := BowlDB.logo(bowl_id)
 	if tex == null:
