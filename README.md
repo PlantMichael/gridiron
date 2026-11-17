@@ -96,7 +96,7 @@ players, the ball and active routes retain the stronger contrast. The original
 surface art lives in `assets/field/` as SVGs imported directly by Godot.
 
 About 200 civilian teammates gather in scattered groups along the sidelines,
-wearing the same blue, red or green palette as that side's players. Bench seats,
+wearing the same uniform palette as that side's players. Bench seats,
 orange water coolers, bottle crates, towel bins, equipment bags and cones fill
 the team areas, with a clear lane next to the boundary for officials. Between
 plays, teammates shift their weight and glance around, nod and gesture while
