@@ -148,6 +148,36 @@ func _run() -> void:
 	get_tree().root.size = Vector2i(1440, 900)
 	await _match()
 	_check(not screen.sim.auto_passing and screen.bar_host.find_child("Priority_F0", true, false) == null, "Manual default hides priority controls")
+	await get_tree().process_frame
+	for i in 5:
+		var player: SimPlayer = screen.sim.offense_slot("F%d" % i)
+		var marker: Button = screen.field.get("_pass_controls")[player].get_node("Throw")
+		_check(marker.text == str(i + 1) and marker.mouse_filter == Control.MOUSE_FILTER_IGNORE
+			and marker.focus_mode == Control.FOCUS_NONE, "pre-snap number identifies receiver without intercepting chalk input")
+	await _key(KEY_1)
+	_check(screen.sim.phase == MatchSim.Phase.PRESNAP and not screen.sim.ball_in_air, "pre-snap number keys cannot throw or snap")
+	var field: Control = screen.field
+	field.set_process(false) # Stable geometry for the native drawing gesture.
+	var start: Vector2 = field.to_px(screen.sim.offense_slot("F0").pos)
+	var press := InputEventMouseButton.new()
+	press.position = start
+	press.button_index = MOUSE_BUTTON_LEFT
+	press.pressed = true
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+	var motion := InputEventMouseMotion.new()
+	motion.position = start + Vector2(0, -90)
+	motion.relative = Vector2(0, -90)
+	motion.button_mask = MOUSE_BUTTON_MASK_LEFT
+	Input.parse_input_event(motion)
+	await get_tree().process_frame
+	press = InputEventMouseButton.new()
+	press.position = motion.position
+	press.button_index = MOUSE_BUTTON_LEFT
+	Input.parse_input_event(press)
+	await get_tree().process_frame
+	_check(GameState.has_route("F0"), "native chalk gesture still stores a route with numbered previews visible")
+	field.set_process(true)
 	screen.sim.toggle_priority_target("F0")
 	var before: int = screen.sim.rng.state
 	screen._set_auto_passing(true)
@@ -168,6 +198,9 @@ func _run() -> void:
 	screen._set_auto_passing(false)
 	await _key(KEY_ENTER)
 	_check(screen.sim.phase == MatchSim.Phase.LIVE, "Enter still snaps")
+	var live_marker: Button = screen.field.get("_pass_controls")[screen.sim.offense_slot("F0")].get_node("Throw")
+	_check(live_marker.text == "1" and live_marker.mouse_filter == Control.MOUSE_FILTER_STOP
+		and live_marker.focus_mode == Control.FOCUS_ALL, "receiver keeps its number and gains throw input at the snap")
 	await _key(KEY_1, true)
 	await _key(KEY_1, false, true)
 	_check(not screen.sim.ball_in_air, "echo and modified numeric inputs do not throw")

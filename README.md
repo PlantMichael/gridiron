@@ -81,7 +81,8 @@ same route, snap and kick controls.
 Each route card has its player's name underneath, followed by that player's
 eligible handoff choices. Check marks show selected options.
 QB scramble, passing mode and chalkboard tools sit beside the cards.
-Manual passing is the default for a new run. After snapping, click a receiver’s
+Manual passing is the default for a new run. Receiver numbers are visible while
+you draw routes and keep the same keys after the snap. After snapping, click a receiver’s
 numbered circle or press **1–5** to choose who and when to throw. Extra receivers
 use **6–9**, then **0** for the tenth; later receivers support click or Tab + Space.
 Keypad numbers work too. **DEX** shows current effective Dexterity, including buffs.

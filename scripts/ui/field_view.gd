@@ -59,7 +59,8 @@ func _make_pass_control(target: SimPlayer, index: int) -> Control:
 func update_pass_targets() -> void:
 	_pass_leaders.clear()
 	var targets: Array[SimPlayer] = []
-	if passing_controls_enabled and sim != null and sim.manual_pass_available():
+	var preview := sim != null and sim.phase == MatchSim.Phase.PRESNAP and not sim.auto_passing and not sim.kick_mode
+	if passing_controls_enabled and sim != null and (preview or sim.manual_pass_available()):
 		targets = sim.passing_targets()
 	for target in _pass_controls.keys():
 		if not targets.has(target):
@@ -72,7 +73,10 @@ func update_pass_targets() -> void:
 		if not _pass_controls.has(target):
 			_pass_controls[target] = _make_pass_control(target, i)
 		var host: Control = _pass_controls[target]
-		host.get_node("Throw").disabled = not sim.can_manual_pass(target)
+		var button: Button = host.get_node("Throw")
+		button.mouse_filter = Control.MOUSE_FILTER_IGNORE if preview else Control.MOUSE_FILTER_STOP
+		button.focus_mode = Control.FOCUS_NONE if preview else Control.FOCUS_ALL
+		button.disabled = not preview and not sim.can_manual_pass(target)
 		host.get_node("Dex").text = "DEX %s" % target.stat("dexterity")
 		var anchor := to_px(target.pos)
 		var lo := Vector2(8, top_inset + 8)
