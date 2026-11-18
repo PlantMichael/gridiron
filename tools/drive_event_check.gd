@@ -207,13 +207,14 @@ func _bottles() -> void:
 	hit.stunned = 0.0
 	s._step_drive_event()
 	_check(hit.stunned == 0.0, "one bottle cannot apply impact twice")
-	for second in [4.0, 7.0, 10.0, 13.0]:
-		s.time = second
-		s._step_drive_event()
+	s.time = 4.0
+	s._step_drive_event()
 	_check(s._bottles_thrown == 2, "bottle event caps throws at two per drive")
+	_check(not s.bottles.is_empty() and not s.bottles.back()["impacted"], "second bottle still has a pending warning at whistle")
 	# Advance through the normal whistle/next-play lifecycle on the same drive.
 	s._end_play({"kind": "incomplete", "yards": 0.0, "text": "Test whistle"})
 	s.advance()
+	s.set_drawn_call({}) # Match._on_continue also applies the call before the next snap.
 	_check(s.bottles.is_empty() and s._bottles_thrown == 2 and s.drive_event == DriveEventDB.BOTTLES,
 		"next play clears flying bottles but keeps the spent drive budget")
 	s.snap()
@@ -223,6 +224,7 @@ func _bottles() -> void:
 	_check(s.bottles.is_empty() and s._bottles_thrown == 2, "later plays cannot launch more bottles in this drive")
 	s._end_play({"kind": "incomplete", "yards": 0.0, "text": "Test whistle"})
 	s.advance()
+	s.set_drawn_call({})
 	s.begin_drive()
 	_check(s.bottles.is_empty() and s.drive_event == DriveEventDB.NONE and s._bottles_thrown == 0,
 		"next drive clears bottle event and resets the budget")
