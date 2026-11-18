@@ -91,6 +91,34 @@ func _run() -> void:
 		sim.step(1.0 / 120.0)
 	_check(sim.phase == MatchSim.Phase.DEAD and int(sim.stat_line_for(sim.offense_slot("QB").data).get("pass_att", 0)) == 1,
 		"normal whistle credits exactly one manual pass attempt")
+	sim.advance()
+	_check(sim.phase == MatchSim.Phase.PRESNAP and sim.down == 2, "incomplete manual pass advances the down normally")
+	var complete := _sim("", 7712)
+	for i in 480:
+		complete.step(1.0 / 120.0)
+	var catcher := complete.offense_slot("F4")
+	catcher.pos = complete.carrier.pos + Vector2(12, 8)
+	catcher.vel = Vector2.ZERO
+	_check(complete.request_pass(catcher), "completion fixture uses the manual command")
+	for i in 600:
+		complete.step(1.0 / 120.0)
+		if not complete.ball_in_air:
+			break
+	_check(complete.carrier == catcher and catcher.has_ball, "manual flight reaches chosen receiver's possession")
+	_inert(complete, complete.offense_slot("F0"), "receiver carrying a catch cannot throw a second pass")
+	for i in 3600:
+		if complete.phase != MatchSim.Phase.LIVE:
+			break
+		complete.step(1.0 / 120.0)
+	var passing := complete.stat_line_for(complete.offense_slot("QB").data)
+	var receiving := complete.stat_line_for(catcher.data)
+	_check(int(passing.get("pass_comp", 0)) == 1 and int(receiving.get("rec", 0)) == 1,
+		"successful manual play credits one completion and reception")
+	_check(bool(complete.result.get("td", false)) and int(passing.get("pass_td", 0)) == 1,
+		"manual catch and run retains normal touchdown credit")
+	complete.advance()
+	_check(complete.phase == MatchSim.Phase.DRIVE_OVER and complete.score_us > 0,
+		"completed manual play advances through the normal scoring boundary")
 	var auto := _sim()
 	auto.auto_passing = true
 	for i in 720:
@@ -163,6 +191,8 @@ func _run() -> void:
 	await get_tree().process_frame
 	var host: Control = screen.field.get("_pass_controls")[receiver]
 	_check(host.get_node("Dex").text == "DEX %d" % receiver.stat("dexterity"), "DEX follows effective mid-play gains")
+	# Freeze the moving camera only for this geometric hit-area check; GUI input stays native.
+	screen.field.set_process(false)
 	var button: Button = host.get_node("Throw")
 	await _click(button.get_global_rect().position + Vector2(1, 1))
 	_check(not screen.sim.ball_in_air, "outside circular face does not throw")
@@ -241,4 +271,3 @@ func _click(at: Vector2) -> void:
 		Input.parse_input_event(event)
 		await get_tree().process_frame
 	await get_tree().process_frame
-

@@ -7,7 +7,8 @@ A 2D football roguelike in Godot 4.7. You coach the offense of one team across a
 practice opener followed by a USA journey to your chosen bowl. Every match is 4-5 drives; you set the lineup, hand out items,
 and then **draw the routes** — each of your five flex players starts with 30 yards of chalk (abilities can change it),
 and you drag his route straight onto the field before the snap. The play then
-simulates in real time and the QB throws to whoever actually gets open. Football
+simulates in real time: choose your receiver and throw timing, or turn on Auto
+to let the QB choose who gets open. Football
 bucks earned on the field buy players and items at Shop stops on the map. You get 3 losses across the whole run before the season is over; a loss that
 doesn't end it costs you the win bonus and you move on along the map.
 
@@ -300,7 +301,8 @@ The flow is:
    same shape, nothing downstream in the sim had to change.
 
 There is no scripted read order on a drawn call: `progression` is empty, so the
-QB works purely off who is open, nudged by the priority targets you flag.
+Auto QB works off who is open, nudged by the priority targets you flag.
+Manual passing instead uses your live receiver choice and throw timing.
 
 `PlayDB` survives as reference material, not as a game system. Plays are no
 longer bought, owned, or called — the **Route Book** screen browses them, the
@@ -488,7 +490,7 @@ list — flattened that out, and the late rounds now lose on scoring rather than
 on the pocket disintegrating. **Winning the last two rounds still requires
 actually upgrading the roster**, which is the intended pressure.
 
-`routesim` (drawn routes, the real game) compares three coaches at three
+`routesim` (drawn routes with Auto passing) compares three coaches at three
 rounds. This is the table that matters, because it shows the chalkboard is a
 real decision rather than decoration:
 
