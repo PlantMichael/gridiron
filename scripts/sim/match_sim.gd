@@ -448,7 +448,7 @@ func flex_players() -> Array[SimPlayer]:
 	return out
 
 
-## Stable original flex numbers, then additional on-field receivers. Keep
+## Original flexes numbered left to right in their formation, then extras. Keep
 ## unavailable candidates here so a melt/delay doesn't renumber teammates.
 ## Clones share slot and card, so commands always use the SimPlayer itself.
 func passing_targets() -> Array[SimPlayer]:
@@ -457,6 +457,9 @@ func passing_targets() -> Array[SimPlayer]:
 		var original := offense_slot("F%d" % i)
 		if original != null:
 			out.append(original)
+	# Alignment targets remain fixed while routes cross during live play.
+	out.sort_custom(func(a: SimPlayer, b: SimPlayer):
+		return a.slot < b.slot if a.target_pos.y == b.target_pos.y else a.target_pos.y < b.target_pos.y)
 	for sp in offense:
 		if not out.has(sp) and (sp.slot.begins_with("F") or sp.role == SimPlayer.Role.ROUTE):
 			out.append(sp)

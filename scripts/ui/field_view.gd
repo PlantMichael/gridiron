@@ -63,7 +63,9 @@ func update_pass_targets() -> void:
 	if passing_controls_enabled and sim != null and (preview or sim.manual_pass_available()):
 		targets = sim.passing_targets()
 	for target in _pass_controls.keys():
-		if not targets.has(target):
+		var index := targets.find(target)
+		var caption := str(index + 1) if index != 9 else "0"
+		if index < 0 or _pass_controls[target].get_node("Throw").text != caption:
 			_pass_controls[target].hide()
 			_pass_controls[target].queue_free()
 			_pass_controls.erase(target)

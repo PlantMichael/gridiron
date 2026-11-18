@@ -53,6 +53,14 @@ func _inert(sim: MatchSim, target: SimPlayer, why: String) -> void:
 
 func _run() -> void:
 	var sim := _sim()
+	var expected_order: Array[SimPlayer] = [sim.offense_slot("F1"), sim.offense_slot("F3"), sim.offense_slot("F2"), sim.offense_slot("F0"), sim.offense_slot("F4")]
+	for i in expected_order.size():
+		expected_order[i].target_pos.y = 5.0 + i * 10.0
+	_check(sim.passing_targets() == expected_order, "receiver keys follow left-to-right formation order")
+	for i in expected_order.size():
+		expected_order[i].pos.y = 48.0 - i * 9.0
+	_check(sim.passing_targets() == expected_order, "crossing routes do not change assigned throw keys")
+	sim = _sim()
 	for i in 480:
 		sim.step(1.0 / 120.0)
 	_check(sim.manual_pass_available() and is_equal_approx(sim.time, 4.0), "Manual waits for chosen timing")
@@ -136,7 +144,8 @@ func _run() -> void:
 	_check(targets.size() == 10, "five Mitosis originals produce five distinct extra targets")
 	if targets.size() == 10:
 		for i in 5:
-			_check(targets[i] == clones.offense_slot("F%d" % i), "original numbering stays stable")
+			_check(targets[i].clone_of == null and (i == 0 or targets[i - 1].target_pos.y <= targets[i].target_pos.y),
+				"originals keep left-to-right numbers ahead of extra receivers")
 		var twin := targets[9]
 		_check(twin.clone_of != null and twin.data == twin.clone_of.data, "twin is actual shared-data producer")
 		_inert(clones, twin, "twin cannot receive during snap delay")
@@ -149,11 +158,25 @@ func _run() -> void:
 	await _match()
 	_check(not screen.sim.auto_passing and screen.bar_host.find_child("Priority_F0", true, false) == null, "Manual default hides priority controls")
 	await get_tree().process_frame
+	var previous_x := -INF
 	for i in 5:
-		var player: SimPlayer = screen.sim.offense_slot("F%d" % i)
+		var player := _numbered_player(i + 1)
+		var x: float = screen.field.to_px(player.target_pos).x
+		_check(x > previous_x, "displayed numbers increase from left to right")
+		previous_x = x
 		var marker: Button = screen.field.get("_pass_controls")[player].get_node("Throw")
 		_check(marker.text == str(i + 1) and marker.mouse_filter == Control.MOUSE_FILTER_IGNORE
 			and marker.focus_mode == Control.FOCUS_NONE, "pre-snap number identifies receiver without intercepting chalk input")
+	var left := _numbered_player(1)
+	var right := _numbered_player(5)
+	var left_y := left.target_pos.y
+	left.target_pos.y = right.target_pos.y
+	right.target_pos.y = left_y
+	screen.field.update_pass_targets()
+	_check(_numbered_player(1) == right and _numbered_player(5) == left, "formation changes refresh the displayed throw keys")
+	right.target_pos.y = left.target_pos.y
+	left.target_pos.y = left_y
+	screen.field.update_pass_targets()
 	await _key(KEY_1)
 	_check(screen.sim.phase == MatchSim.Phase.PRESNAP and not screen.sim.ball_in_air, "pre-snap number keys cannot throw or snap")
 	var field: Control = screen.field
@@ -196,9 +219,11 @@ func _run() -> void:
 	screen.speed = 0.0
 	_check(screen.sim.auto_passing, "next match inherits this run's Auto choice")
 	screen._set_auto_passing(false)
+	var first_receiver := _numbered_player(1)
+	var middle_receiver := _numbered_player(3)
 	await _key(KEY_ENTER)
 	_check(screen.sim.phase == MatchSim.Phase.LIVE, "Enter still snaps")
-	var live_marker: Button = screen.field.get("_pass_controls")[screen.sim.offense_slot("F0")].get_node("Throw")
+	var live_marker: Button = screen.field.get("_pass_controls")[first_receiver].get_node("Throw")
 	_check(live_marker.text == "1" and live_marker.mouse_filter == Control.MOUSE_FILTER_STOP
 		and live_marker.focus_mode == Control.FOCUS_ALL, "receiver keeps its number and gains throw input at the snap")
 	await _key(KEY_1, true)
@@ -214,7 +239,7 @@ func _run() -> void:
 	screen.side_panel.hide()
 	await get_tree().process_frame
 	await _key(KEY_KP_3)
-	_check(screen.sim.ball_in_air and screen.sim.thrown_to == screen.sim.offense_slot("F2"), "keypad chooses exact receiver")
+	_check(screen.sim.ball_in_air and screen.sim.thrown_to == middle_receiver, "keypad throws to the player displaying that number")
 	_check(screen.field.get("_pass_controls").is_empty(), "receiver controls leave after throw")
 
 	await _match()
@@ -261,14 +286,22 @@ func _run() -> void:
 		_check(screen.sim.thrown_to == extras[10], "receiver beyond numeric hotkeys uses native focus and Space")
 
 	await _match()
+	await get_tree().process_frame
+	var rightmost := _numbered_player(5)
 	await _key(KEY_ENTER)
 	await _key(KEY_5)
-	_check(screen.sim.thrown_to == screen.sim.offense_slot("F4"), "top-row key chooses fifth receiver")
+	_check(screen.sim.thrown_to == rightmost, "top-row five throws to the pre-snap rightmost receiver")
 	GameState.auto_passing = true
 	GameState.new_run(91)
 	_check(not GameState.auto_passing, "new run resets to Manual")
 	print("MANUAL PASSING CHECK: %s" % ("ALL CHECKS PASSED" if failures == 0 else "%d FAILURES" % failures))
 	get_tree().quit(1 if failures else 0)
+
+func _numbered_player(number: int) -> SimPlayer:
+	for player: SimPlayer in screen.field.get("_pass_controls"):
+		if screen.field.get("_pass_controls")[player].get_node("Throw").text == str(number):
+			return player
+	return null
 
 func _match() -> void:
 	GameState.new_run(99003)
