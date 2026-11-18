@@ -144,16 +144,19 @@ Touchdowns award points and football bucks and then lead directly to the normal
 drive-over screen. They no longer offer stat-buff choices. Existing player
 abilities and bonuses from run-map events still work.
 
-Every offensive drive, including the opening drive and overtime, rolls once for
-an event: 20% initially, plus 10 percentage points per completed match, capped at
-65%. A successful roll chooses equally among the original four events and the selected route's additions:
+The opening practice match has no random drive events. From the second match,
+every offensive drive, including overtime, rolls once for an event: 30% in the
+second match, rising by 10 percentage points per completed match, capped at 65%.
+A successful roll chooses equally among the original four events and the selected
+route's additions:
 
 - **Oil Spill:** three dark, rimmed patches slow both teams to 65% speed. Avoid
   them with your routes. Rain and oil use the stronger slowdown; weather immunity
   protects against rain, while oil still affects footing.
-- **Fans Throwing Bottles:** up to three throws per non-kick play, starting after
-  0.75 seconds and then every three seconds. A fixed landing marker gives 1.25
-  seconds to move away; an impact stuns anyone within two yards for 0.65 seconds.
+- **Fans Throwing Bottles:** up to two throws total per drive, shared across
+  non-kick plays, starting after 0.75 live seconds (3.75 seconds for the second
+  throw). A fixed landing marker gives 1.25 seconds to move away; an impact stuns
+  anyone within two yards for 0.65 seconds.
 - **Extra Defender:** a twelfth defender patrols a shallow zone for the drive.
 - **Aura Farm:** the offense gains +1 STR, AGI, DEX and INT for this drive,
   including substitutes and the kicker's relevant stats. Normal caps apply.

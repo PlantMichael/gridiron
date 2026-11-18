@@ -120,7 +120,7 @@ var _vegas_carrier: SimPlayer
 var _vegas_yards := 0.0
 var oil_spills: Array = []       # {pos: Vector2, r: float}, fixed for this drive
 var bottles: Array = []          # {from, pos, impact_at, impacted}; play-local
-var _bottles_thrown := 0
+var _bottles_thrown := 0        # drive-wide budget; flying bottles remain play-local
 const EVENT_DEFENDER_SLOT := "LB_EVENT"
 
 # --- Play state -------------------------------------------------------------
@@ -606,6 +606,7 @@ func start_match() -> void:
 
 func begin_drive() -> void:
 	_take_kicker_off()
+	_bottles_thrown = 0
 	_drive_catchers.clear()
 	_drive_last_receiver = null
 	_drive_opening_acts.clear()
@@ -646,8 +647,8 @@ func begin_drive() -> void:
 
 
 func configure_drive_events(depth: int, bowl_id: String = "") -> void:
-	_drive_events_enabled = true
 	drive_event_depth = maxi(0, depth)
+	_drive_events_enabled = drive_event_depth > 0 # The opening match is event-free.
 	_drive_event_pool = DriveEventDB.pool_for_bowl(bowl_id)
 
 
@@ -660,7 +661,6 @@ func set_drive_event(id: String) -> bool:
 	drive_event = id
 	oil_spills.clear()
 	bottles.clear()
-	_bottles_thrown = 0
 	for sp in offense + defense:
 		sp.terrain_mult = 1.0
 	if id == DriveEventDB.OIL:
@@ -719,7 +719,7 @@ func _step_drive_event() -> void:
 		log_line("POLICE INVESTIGATION: the defense is distracted — keep moving! (%d/2)" % police_uses)
 	if drive_event != DriveEventDB.BOTTLES:
 		return
-	if _bottles_thrown < 3 and time >= 0.75 + 3.0 * _bottles_thrown:
+	if _bottles_thrown < 2 and time >= 0.75 + 3.0 * _bottles_thrown:
 		var target := carrier.pos if carrier != null else ball_pos
 		target.x = clampf(target.x, OWN_GOAL, GOAL_LINE)
 		target.y = clampf(target.y, 2.0, FIELD_W - 2.0)
@@ -878,7 +878,6 @@ func _begin_call(instant: bool, walk: bool = false) -> void:
 	_reset_vegas()
 	time = 0.0
 	bottles.clear()
-	_bottles_thrown = 0
 	_pocket_hold = 0.0
 	_patient_throw = false
 	speed_patches.clear()

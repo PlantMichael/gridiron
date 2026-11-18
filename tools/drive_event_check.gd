@@ -73,12 +73,17 @@ func _extra_defender() -> void:
 
 
 func _rolls() -> void:
-	var low := _make(0)
+	var opener := _make(0)
+	var low := _make(1)
 	var high := _make(7)
 	var first_count := 0
 	var late_count := 0
+	var opening_count := 0
 	var appeared := {}
 	for seed_value in range(1, 201):
+		opener.rng.seed = seed_value
+		opener.begin_drive()
+		opening_count += int(opener.drive_event != DriveEventDB.NONE)
 		low.rng.seed = seed_value
 		high.rng.seed = seed_value
 		low.begin_drive()
@@ -86,8 +91,9 @@ func _rolls() -> void:
 		first_count += int(low.drive_event != DriveEventDB.NONE)
 		late_count += int(high.drive_event != DriveEventDB.NONE)
 		appeared[high.drive_event] = true
+	_check(opening_count == 0, "opening match stays event-free on every drive")
 	_check(first_count > 0 and first_count < late_count and late_count < 200 and appeared.size() == 5,
-		"every drive can roll None or all four events, with higher frequency deeper in run")
+		"after the opener, drives can roll None or all four events, with higher frequency deeper in run")
 	var a := _make(3)
 	var b := _make(3)
 	for i in 8:
@@ -204,19 +210,47 @@ func _bottles() -> void:
 	for second in [4.0, 7.0, 10.0, 13.0]:
 		s.time = second
 		s._step_drive_event()
-	_check(s._bottles_thrown == 3, "bottle event caps throws per play")
-	s.set_drawn_call({})
-	_check(s.bottles.is_empty() and s._bottles_thrown == 0 and s.drive_event == DriveEventDB.BOTTLES,
-		"next play clears bottle state but retains drive event")
+	_check(s._bottles_thrown == 2, "bottle event caps throws at two per drive")
+	# Advance through the normal whistle/next-play lifecycle on the same drive.
+	s._end_play({"kind": "incomplete", "yards": 0.0, "text": "Test whistle"})
+	s.advance()
+	_check(s.bottles.is_empty() and s._bottles_thrown == 2 and s.drive_event == DriveEventDB.BOTTLES,
+		"next play clears flying bottles but keeps the spent drive budget")
+	s.snap()
+	for second in [1.0, 4.0, 8.0]:
+		s.time = second
+		s._step_drive_event()
+	_check(s.bottles.is_empty() and s._bottles_thrown == 2, "later plays cannot launch more bottles in this drive")
+	s._end_play({"kind": "incomplete", "yards": 0.0, "text": "Test whistle"})
+	s.advance()
+	s.begin_drive()
+	_check(s.bottles.is_empty() and s.drive_event == DriveEventDB.NONE and s._bottles_thrown == 0,
+		"next drive clears bottle event and resets the budget")
+	s.set_drive_event(DriveEventDB.BOTTLES)
 	s.set_kick_mode(true)
 	s.snap()
-	s.step(0.1)
-	_check(s.bottles.is_empty(), "no bottles are launched during kicks")
+	s.time = 0.74
+	s.step(0.02)
+	_check(s.bottles.is_empty() and s._bottles_thrown == 0, "kicks cannot launch bottles even with a fresh budget")
 	s.begin_drive()
-	_check(s.bottles.is_empty() and s.drive_event == DriveEventDB.NONE, "next drive clears bottle event")
+	s.set_drive_event(DriveEventDB.BOTTLES)
+	s.set_kick_mode(false)
+	s.set_drawn_call({})
+	s.snap()
+	s.time = 0.75
+	s._step_drive_event()
+	_check(s.bottles.size() == 1 and s._bottles_thrown == 1, "new drive can launch bottles again")
 
 
 func _screen_flow() -> void:
+	GameState.new_run(91032)
+	var opening: Node = load("res://scenes/match.tscn").instantiate()
+	add_child(opening)
+	await opening.ready_to_play
+	_check(not opening.sim._drive_events_enabled and opening.sim.drive_event == DriveEventDB.NONE,
+		"actual first match has no random drive events")
+	opening.queue_free()
+	await get_tree().process_frame
 	GameState.new_run(91032)
 	GameState.matches_played = 3
 	var ui: Node = load("res://scenes/match.tscn").instantiate()

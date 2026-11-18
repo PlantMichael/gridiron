@@ -22,7 +22,7 @@ const AURA_STATS := ["strength", "agility", "dexterity", "intelligence"]
 const EVENTS := {
 	NONE: {"name": "No drive event", "desc": "Ordinary football this drive."},
 	OIL: {"name": "Oil Spill", "desc": "Dark patches slow BOTH teams to 65% speed. Avoid the marked turf."},
-	BOTTLES: {"name": "Angry Fans", "desc": "Up to 3 throws per play. Leave marked circles before impact (1.25s); hits stun for 0.65s. No throws during kicks."},
+	BOTTLES: {"name": "Angry Fans", "desc": "Up to 2 throws per drive. Leave marked circles before impact (1.25s); hits stun for 0.65s. No throws during kicks."},
 	EXTRA_DEFENDER: {"name": "Extra Defender", "desc": "A twelfth defender patrols a shallow zone. Find the space he leaves open."},
 	PULSE: {"name":"Stadium Pulse", "desc":"The team losing at the snap gets +1 to all stats this play. Ties give no boost."},
 	AD_BREAK: {"name":"Ad Break", "desc":"Both teams have -1 to all stats for this drive."},
