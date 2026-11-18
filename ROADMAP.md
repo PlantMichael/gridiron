@@ -33,8 +33,8 @@ football bucks; player abilities and run-map match bonuses remain supported.
 
 The initial tuning values are:
 
-- Roll once at the start of each offensive drive, including the opening drive.
-- Start at 20%, add 10 percentage points per completed match, and cap at 65%.
+- The first match has no random drive events. From the second match, roll once at the start of each offensive drive.
+- Start at 30% in the second match, add 10 percentage points per completed match, and cap at 65%.
 - Select at most one event per drive, equally among the four originals and eligible route additions.
 - Announce the effect before the snap and explain its duration.
 - Clear drive-specific effects before rolling the next event.
@@ -43,11 +43,11 @@ The initial tuning values are:
 | Event | Current behavior |
 |---|---|
 | Oil spill | Three marked patches slow either team to 65% speed. Rain uses the stronger slowdown. |
-| Fans throwing bottles | Up to three throws per non-kick play, with fixed landing zones and 1.25 seconds of warning. Anyone within two yards at impact is stunned for 0.65 seconds. |
+| Fans throwing bottles | Up to two throws total per drive across non-kick plays, with fixed landing zones and 1.25 seconds of warning. Anyone within two yards at impact is stunned for 0.65 seconds. |
 | Extra defender | One additional linebacker covers a shallow zone for the drive, then leaves. |
 | Aura farm | Your team gains +1 STR, AGI, DEX and INT for the drive, including substitutes; normal caps apply. |
 
-The opening drive and overtime use the same roll. Redrawing routes, substitutions
+After the first match, opening drives and overtime use the same roll. Redrawing routes, substitutions
 and kicks do not reroll an event. Dev Mode can preview each event between plays.
 These values need full-run player balance testing before expanding items and
 bowl effects; automated correctness checks do not establish difficulty balance.
