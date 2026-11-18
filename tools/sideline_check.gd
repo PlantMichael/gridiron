@@ -2,6 +2,7 @@ extends Node
 
 ## Presentation state plus the real FieldView clock/pause boundary.
 ## godot --headless --path . res://tools/sideline_check.tscn
+## Run without --headless too: native mesh/projection checks need a renderer.
 var failures := 0
 
 func _ready() -> void:
@@ -131,9 +132,75 @@ func _ready() -> void:
 	await get_tree().process_frame
 	await get_tree().process_frame
 	_check(crowd.clock > clock_before, "NPC animation resumes with the game")
+	if DisplayServer.get_name() != "headless":
+		await _batch_rendering(field, crowd)
+	else:
+		print("Native mesh/projection checks require the non-headless sideline_check run.")
 	screen.queue_free()
 	print("SIDELINE CHECK: %s" % ("ALL CHECKS PASSED" if failures == 0 else "%d FAILURES" % failures))
 	get_tree().quit(1 if failures else 0)
+
+
+func _batch_rendering(field, crowd: SidelineCrowd) -> void:
+	# Actual FieldView draw notifications exercise the native mesh owner.
+	field.set_process(false)
+	field.camera_locked = false
+	field.set("_fit", 20.0)
+	field.set("_zoom", 2.5)
+	field.set("_zoom_pulse_t", 0.0)
+	field.set("_cam_x", 50.0)
+	field.set("_cam_y", MatchSim.FIELD_W * 0.5)
+	crowd._batch.invalidate() # Sample the empty view even though its bounds fit inside the old cache.
+	field.queue_redraw()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(crowd._batch._mesh != null and crowd._batch._mesh.get_surface_count() == 0,
+		"zoomed midfield safely draws an empty sideline batch")
+	field.set("_cam_y", -7.0)
+	field.queue_redraw()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(crowd._batch._mesh != null and crowd._batch._mesh.get_surface_count() == 1,
+		"panning back to the sideline immediately restores its visible actors")
+	# A tall synthetic view contains every actor, isolating projection from culling.
+	field.size = Vector2(1440, 3000)
+	field.set("_zoom", 0.6)
+	field.set("_cam_y", MatchSim.FIELD_W * 0.5)
+	field.set("_cam_x", 60.0)
+	crowd._batch.invalidate()
+	field.queue_redraw()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var before: PackedVector2Array = crowd._batch._mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	field.set("_cam_x", 61.0)
+	crowd._batch.invalidate()
+	field.queue_redraw()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	var after: PackedVector2Array = crowd._batch._mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX]
+	var same_world_geometry := before.size() == after.size() and not before.is_empty()
+	if same_world_geometry:
+		for i in before.size():
+			if not before[i].is_equal_approx(after[i]):
+				same_world_geometry = false
+				break
+	_check(same_world_geometry, "camera-only rebuild preserves world-space actor geometry")
+	# Real replacement can introduce a palette that this renderer has never warmed.
+	var fresh := SidelineCrowd.new()
+	fresh.reset(field.sim)
+	_check(fresh.warm_resources(field.sim), "fresh renderer warms the original match")
+	var replacement := MatchSim.new()
+	replacement.defense_jersey = "red" if field.sim.defense_jersey != "red" else "green"
+	replacement.los = 60.0
+	field.sim = replacement
+	field.sidelines = fresh
+	fresh.advance(replacement, 0.016)
+	field.queue_redraw()
+	await get_tree().process_frame
+	await get_tree().process_frame
+	_check(fresh._batch._mesh != null and fresh._batch._mesh.get_surface_count() == 1
+		and fresh._prepared_palette == replacement.defense_jersey,
+		"replacement match renders its newly warmed team palette")
 
 func _fourth_down_spot(crowd: SidelineCrowd, sim: MatchSim, yards: float) -> void:
 	sim.phase = MatchSim.Phase.PRESNAP

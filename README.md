@@ -136,8 +136,17 @@ godot --headless --path . --script assets/sidelines/_cut_assets.gd -- SOURCE_FOL
 The equipment in `assets/sidelines/props/` is original outlined SVG art, imported
 directly by Godot.
 
+Sideline people share a mipmapped sprite atlas and one ordered mesh. Their visual
+poses refresh up to 30 times per second; the cached world geometry follows the
+camera every frame. All people, walking, gestures and staggered reactions remain.
+Gameplay and input keep their normal update cadence. The loading screen prepares
+the atlas before revealing the field; this trades some texture memory for fewer
+draw calls during play.
+
 Run `godot --headless --path . res://tools/sideline_check.tscn` for reaction,
 team palette, official tracking, repeat-play and pause checks.
+Also run `godot --path . res://tools/sideline_check.tscn` with a native renderer
+for empty-view/reentry and world-space mesh projection checks.
 
 ## Drive events and touchdown rewards
 

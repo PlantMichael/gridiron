@@ -47,9 +47,14 @@ var _textures: Dictionary = {}
 var _heads: Dictionary = {}
 var _animation_rng := RandomNumberGenerator.new()
 var _final_reaction: bool = false
+var _batch := SidelineBatch.new()
+var _atlas_dirty := true
+var _prepared_palette := ""
 
 
 func reset(sim: MatchSim) -> void:
+	_batch.invalidate()
+	_prepared_palette = ""
 	people.clear()
 	officials.clear()
 	props.clear()
@@ -122,6 +127,7 @@ func reset(sim: MatchSim) -> void:
 ## Resolve every view used by an actor, including later turns and reactions,
 ## through the same caches as drawing. The field calls this before reveal.
 func warm_resources(sim: MatchSim) -> bool:
+	_prepared_palette = ""
 	for actor in people + officials:
 		var palette := "ref" if actor.ref else team_palette(actor.offense, sim)
 		for view in ["front", "back", "left"]:
@@ -130,6 +136,15 @@ func warm_resources(sim: MatchSim) -> bool:
 		for view in ["front", "back", "left", "right"]:
 			if _head(actor.head, view)[0] == null:
 				return false
+	if _atlas_dirty:
+		var sprites: Array = _textures.values() + HANDS.values() + [BOTTLE, CLIPBOARD]
+		for head in _heads.values():
+			sprites.append(head[0])
+		if not _batch.prepare(sprites):
+			return false
+		_atlas_dirty = false
+	_batch.invalidate() # A warmed match may select an already-cached team palette.
+	_prepared_palette = team_palette(false, sim)
 	return true
 
 
@@ -312,6 +327,9 @@ func team_palette(offense: bool, sim: MatchSim) -> String:
 
 
 func draw_on(field, sim: MatchSim) -> void:
+	# Direct sim replacement/Dev edits can select a palette after initial loading.
+	if _prepared_palette != team_palette(false, sim) and not warm_resources(sim):
+		return
 	var visible := Rect2(Vector2(-70, -100), field.size + Vector2(140, 200))
 	var scale: float = field.get("_scale")
 	for prop in props:
@@ -325,12 +343,17 @@ func draw_on(field, sim: MatchSim) -> void:
 		field.draw_set_transform(p, 0.0, Vector2(-1.0 if prop.kind == "bench" and not prop.offense else 1.0, 1.0))
 		field.draw_texture_rect(art, Rect2(-dimensions * 0.5, dimensions), false)
 		field.draw_set_transform(Vector2.ZERO, 0.0, Vector2.ONE)
-	var actors := people + officials
-	actors.sort_custom(func(a, b): return a.pos.x > b.pos.x)
-	for actor in actors:
-		var p: Vector2 = field.to_px(actor["pos"])
-		if visible.has_point(p):
-			_draw_actor(field, sim, actor, p)
+	if _batch.needs_pose(field, clock):
+		_batch.begin_pose(field)
+		var actors: Array = []
+		for actor in people + officials:
+			if _batch.contains_actor(actor.pos):
+				actors.append(actor)
+		actors.sort_custom(func(a, b): return a.pos.x > b.pos.x)
+		for actor in actors:
+			_draw_actor(_batch, sim, actor, field.to_px(actor.pos))
+		_batch.end_pose(clock)
+	_batch.draw_on(field)
 
 
 var _shadow: StyleBoxFlat
@@ -354,6 +377,7 @@ func _body(palette: String, view: String, body: int) -> Texture2D:
 			frame.region = Rect2(0, 0, 139, 175)
 			texture = frame
 		_textures[key] = texture
+		_atlas_dirty = true
 	return _textures[key]
 
 
@@ -362,6 +386,7 @@ func _head(set_id: String, view: String) -> Array:
 	if not _heads.has(key):
 		var tex := HeadArtDB.head_texture(set_id, view)
 		_heads[key] = [tex, HeadArtDB.face_draw_rect(set_id, view, tex, 1.0)]
+		_atlas_dirty = true
 	return _heads[key]
 
 
