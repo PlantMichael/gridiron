@@ -9,6 +9,95 @@ extends Control
 
 signal player_clicked(sp: SimPlayer)
 signal field_clicked()
+signal pass_requested(target: SimPlayer)
+
+var passing_controls_enabled := false
+var _pass_controls: Dictionary = {}
+var _pass_leaders: Array[Vector2] = []
+
+class PassButton extends Button:
+	func _has_point(point: Vector2) -> bool:
+		return point.distance_squared_to(size * 0.5) <= pow(minf(size.x, size.y) * 0.5, 2)
+
+
+func _make_pass_control(target: SimPlayer, index: int) -> Control:
+	var host := Control.new()
+	host.name = "PassTarget_%d" % (index + 1)
+	host.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	host.size = Vector2(62, 60)
+	var button := PassButton.new()
+	button.name = "Throw"
+	button.text = str(index + 1) if index != 9 else "0"
+	button.position = Vector2(12, 0)
+	button.size = Vector2(38, 38)
+	button.accessibility_name = "Throw to receiver %d, %s" % [index + 1, target.data.pname]
+	button.tooltip_text = "Throw to %s. %s" % [target.data.pname,
+		"Press %s (0 is receiver 10), click, or Tab then Space." % button.text if index < 10 else "Click or Tab then Space."]
+	button.add_theme_font_size_override("font_size", 21)
+	for state in ["normal", "hover", "pressed", "disabled"]:
+		var rim := UIKit.MUTED if state == "disabled" else UIKit.ACCENT
+		var style := UIKit.stylebox(UIKit.PANEL_HI if state == "hover" else UIKit.PANEL, 19, 2, rim)
+		style.set_content_margin_all(0)
+		button.add_theme_stylebox_override(state, style)
+	button.add_theme_stylebox_override("focus", UIKit.stylebox(Color.TRANSPARENT, 19, 3, UIKit.CHALK))
+	button.add_theme_color_override("font_color", UIKit.CHALK)
+	button.pressed.connect(func(): pass_requested.emit(target))
+	host.add_child(button)
+	var dex := UIKit.label("", 13, UIKit.CHALK)
+	dex.name = "Dex"
+	dex.position = Vector2(0, 39)
+	dex.size = Vector2(62, 21)
+	dex.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	dex.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dex.add_theme_color_override("font_outline_color", UIKit.BG)
+	dex.add_theme_constant_override("outline_size", 5)
+	host.add_child(dex)
+	add_child(host)
+	return host
+
+
+func update_pass_targets() -> void:
+	_pass_leaders.clear()
+	var targets: Array[SimPlayer] = []
+	if passing_controls_enabled and sim != null and sim.manual_pass_available():
+		targets = sim.passing_targets()
+	for target in _pass_controls.keys():
+		if not targets.has(target):
+			_pass_controls[target].hide()
+			_pass_controls[target].queue_free()
+			_pass_controls.erase(target)
+	var placed: Array[Rect2] = []
+	for i in targets.size():
+		var target := targets[i]
+		if not _pass_controls.has(target):
+			_pass_controls[target] = _make_pass_control(target, i)
+		var host: Control = _pass_controls[target]
+		host.get_node("Throw").disabled = not sim.can_manual_pass(target)
+		host.get_node("Dex").text = "DEX %s" % target.stat("dexterity")
+		var anchor := to_px(target.pos)
+		var lo := Vector2(8, top_inset + 8)
+		var hi := Vector2(maxf(lo.x, size.x - 70), maxf(lo.y, size.y - bottom_inset - 68))
+		var base := (anchor + Vector2(-31, -82)).clamp(lo, hi)
+		var chosen := base
+		var found := false
+		for dy in [0, -64, 64, -128, 128]:
+			for dx in [0, -68, 68, -136, 136]:
+				var candidate := (base + Vector2(dx, dy)).clamp(lo, hi)
+				var overlaps := false
+				for rect in placed:
+					if rect.grow(3).intersects(Rect2(candidate, host.size)):
+						overlaps = true
+						break
+				if not overlaps:
+					chosen = candidate
+					found = true
+					break
+			if found:
+				break
+		host.position = chosen
+		placed.append(Rect2(chosen, host.size))
+		_pass_leaders.append(anchor)
+		_pass_leaders.append(chosen + Vector2(31, 58))
 
 ## Emitted when the coach finishes a chalk stroke on a flex player. `route`
 ## is waypoints in yards RELATIVE to that player's alignment, already
@@ -526,6 +615,8 @@ func _process(delta: float) -> void:
 			_finish_stroke()
 		_advance_shake(delta)
 		_advance_weather(delta)
+	_recompute_transform()
+	update_pass_targets()
 	queue_redraw()
 
 
@@ -1316,6 +1407,8 @@ func _draw() -> void:
 	_draw_goalposts()
 	_draw_ball()
 	_draw_weather_sky()
+	for i in range(0, _pass_leaders.size(), 2):
+		draw_line(_pass_leaders[i], _pass_leaders[i + 1], Color(UIKit.CHALK, 0.55), 1.5, true)
 	_draw_stat_pops()
 	if sim.kick_mode or sim.kick_play:
 		_draw_wind()

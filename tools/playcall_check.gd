@@ -93,6 +93,7 @@ func _run() -> void:
 
 func _match() -> void:
 	GameState.new_run(99003)
+	GameState.auto_passing = true # This harness exercises AI-driven plays and priority targets.
 	get_tree().change_scene_to_file("res://scenes/match.tscn")
 	await get_tree().process_frame
 	await get_tree().process_frame

@@ -235,6 +235,9 @@ var ball_air_time: float = 0.0
 ## receiver can still out-score a priority target nobody can get open.
 const PRIORITY_TARGET_BONUS := 5.0
 var priority_targets: Dictionary = {}   # slot String -> true
+## Standalone sims keep their historical AI default. Match UI supplies the run choice.
+var auto_passing: bool = true
+const MAX_THROW_DISTANCE := 48.0
 
 ## Match-local bonuses from run-map mystery events. Keyed by PlayerData so
 ## they follow substitutions. Touchdowns do not grant stat bonuses.
@@ -344,6 +347,7 @@ func setup(starters: Array, defense_data: Array, quality: float, opp_name: Strin
 	_police_drive = -1
 	_police_until = -1.0
 	field_theme = "practice"
+	auto_passing = true
 	_reset_vegas()
 	oil_spills.clear()
 	bottles.clear()
@@ -442,6 +446,42 @@ func flex_players() -> Array[SimPlayer]:
 		if sp.slot.begins_with("F"):
 			out.append(sp)
 	return out
+
+
+## Stable original flex numbers, then additional on-field receivers. Keep
+## unavailable candidates here so a melt/delay doesn't renumber teammates.
+## Clones share slot and card, so commands always use the SimPlayer itself.
+func passing_targets() -> Array[SimPlayer]:
+	var out: Array[SimPlayer] = []
+	for i in 5:
+		var original := offense_slot("F%d" % i)
+		if original != null:
+			out.append(original)
+	for sp in offense:
+		if not out.has(sp) and (sp.slot.begins_with("F") or sp.role == SimPlayer.Role.ROUTE):
+			out.append(sp)
+	return out
+
+
+func manual_pass_available() -> bool:
+	return not auto_passing and phase == Phase.LIVE and not kick_mode and not kick_play \
+		and planned_action == "" and not PlayDB.is_run(play_id) and not qb_scrambling \
+		and not handoff_done and not ball_in_air and vegas_loose_left <= 0.0 \
+		and carrier != null and carrier == offense_slot("QB") and carrier.has_ball
+
+
+func can_manual_pass(target: SimPlayer) -> bool:
+	return manual_pass_available() and target != null and target.is_offense \
+		and _receivers().has(target) \
+		and target.role in [SimPlayer.Role.ROUTE, SimPlayer.Role.CARRY] \
+		and carrier.pos.distance_to(target.pos) <= MAX_THROW_DISTANCE
+
+
+func request_pass(target: SimPlayer) -> bool:
+	if not can_manual_pass(target):
+		return false
+	_throw(carrier, target)
+	return true
 
 
 # --- Pre-snap target priority ------------------------------------------------
@@ -2371,6 +2411,11 @@ func _qb_logic(qb: SimPlayer, delta: float) -> void:
 	else:
 		qb.hold(delta)
 
+	# Manual keeps the same pocket movement and pressure, but the coach owns
+	# receiver selection and timing. Explicit ground plans returned above.
+	if not auto_passing:
+		return
+
 	qb_decision_timer -= delta
 	if qb_decision_timer > 0.0:
 		return
@@ -2991,7 +3036,7 @@ func _evaluate_targets(qb: SimPlayer) -> Dictionary:
 		if f == carrier:
 			continue
 		var throw_dist := qb.pos.distance_to(f.pos)
-		if throw_dist > 48.0:
+		if throw_dist > MAX_THROW_DISTANCE:
 			continue
 		var sep := _nearest_defender_dist(f)
 		var openness := clampf(sep, 0.0, 9.0)

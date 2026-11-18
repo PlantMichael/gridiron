@@ -76,10 +76,18 @@ selection, assignment, equipment, purchase and sacrifice checks.
 A stadium scoreboard floats at the top left with amber score digits, team names,
 drive, down and field position. Match controls sit separately at the top right.
 The play-call and result panels remain floating coach's chalkboards, with the
-same route, priority-target, snap and kick controls.
+same route, snap and kick controls.
 Each route card has its player's name underneath, followed by that player's
-priority-target and eligible handoff choices. Check marks show selected options.
-Shared target-all, QB scramble and chalkboard tools sit beside the cards.
+eligible handoff choices. Check marks show selected options.
+QB scramble, passing mode and chalkboard tools sit beside the cards.
+Manual passing is the default for a new run. After snapping, click a receiver’s
+numbered circle or press **1–5** to choose who and when to throw. Extra receivers
+use **6–9**, then **0** for the tenth; later receivers support click or Tab + Space.
+Keypad numbers work too. **DEX** shows current effective Dexterity, including buffs.
+Unavailable targets are disabled. Planned handoffs and scrambles stay run plays.
+Turn **AUTO: ON** to restore AI passing and priority-target/Target all choices.
+The choice carries between matches in this run; switching preserves Auto priorities.
+Pocket movement stays automatic in both modes.
 Click the large circular **SNAP** button on the right,
 or press **Enter** (including keypad Enter), to start a ready play. Enter also
 starts a ready field goal. Open panels and the pause menu keep their own keyboard
@@ -88,6 +96,8 @@ the next play automatically.
 
 Run `godot --headless --path . res://tools/playcall_check.tscn` for play-call
 selection, circular-button hit testing and keyboard/pause checks.
+Run `godot --headless --path . res://tools/manual_passing_check.tscn` for manual
+throw commands, clone identity, receiver eligibility, mode switching and live inputs.
 
 The match surface uses muted grass texture and wear, restrained five-yard mowing
 bands, painted yard numbers, a quiet midfield emblem and desaturated team-color

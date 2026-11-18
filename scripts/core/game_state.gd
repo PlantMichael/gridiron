@@ -84,6 +84,8 @@ var drawn_routes: Dictionary = {}
 ## start_dev_mode and MatchSim.regenerate_defense (the live difficulty slider
 ## on the match screen's play-call bar).
 var dev_mode: bool = false
+## Passing control is a run-only choice; completion saves stay unchanged.
+var auto_passing: bool = false
 const DEV_ROSTER_QUALITY := 13.0
 const DEV_DEFENSE_QUALITY := 8.0
 ## Flat, high odds in dev mode so every one of the 5 defender auras is
@@ -109,6 +111,7 @@ func new_run(seed_value: int = 0, qb_id: int = -1) -> void:
 		rng.randomize()
 
 	dev_mode = false
+	auto_passing = false
 	self.qb_id = qb_id
 	team_name = Generator.team_name(rng)
 	bucks = 150
@@ -142,6 +145,7 @@ func new_run(seed_value: int = 0, qb_id: int = -1) -> void:
 func start_dev_mode() -> void:
 	rng.randomize()
 	dev_mode = true
+	auto_passing = false
 	team_name = "Dev Squad"
 	bucks = 999999
 	roster.assign(Generator.full_roster(rng, DEV_ROSTER_QUALITY))

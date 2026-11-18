@@ -128,23 +128,60 @@ func _exit_tree() -> void:
 		LoadingScreen.finish(_loading_generation)
 
 
+const PASS_KEYS := [KEY_1, KEY_2, KEY_3, KEY_4, KEY_5, KEY_6, KEY_7, KEY_8, KEY_9, KEY_0,
+	KEY_KP_1, KEY_KP_2, KEY_KP_3, KEY_KP_4, KEY_KP_5, KEY_KP_6, KEY_KP_7, KEY_KP_8, KEY_KP_9, KEY_KP_0]
+
 func _input(event: InputEvent) -> void:
-	if not event is InputEventKey or event.keycode not in [KEY_ENTER, KEY_KP_ENTER]:
+	if not event is InputEventKey or not event.pressed or event.alt_pressed or event.ctrl_pressed or event.meta_pressed:
 		return
-	if not event.pressed or event.alt_pressed or event.ctrl_pressed or event.meta_pressed:
+	var index := PASS_KEYS.find(event.keycode)
+	if index >= 0:
+		if not event.echo and not event.shift_pressed and _passing_input_clear() and sim.manual_pass_available():
+			get_viewport().set_input_as_handled()
+			var targets := sim.passing_targets()
+			index %= 10
+			if index < targets.size():
+				_on_pass_requested(targets[index])
 		return
-	if not _can_snap() or play_bar == null or not play_bar.visible:
+	if event.keycode not in [KEY_ENTER, KEY_KP_ENTER]:
 		return
-	# Let open panels and the pause menu keep their normal keyboard actions.
-	if card.visible or side_panel.visible or examples_panel.visible or end_panel.visible:
+	if not _can_snap() or play_bar == null or not play_bar.visible or not _passing_input_clear():
 		return
-	if is_instance_valid(_event_picker) and _event_picker.get_popup().visible:
-		return
-	# Handle before GUI focus: Enter snaps even when a target or toolbar button
-	# is focused. Space remains available to activate those native controls.
+	# Enter snaps before focused call controls consume it; Space activates them.
 	get_viewport().set_input_as_handled()
 	if not event.echo:
 		_on_snap()
+
+
+func _passing_input_clear() -> bool:
+	return not loading and sim != null and not get_tree().paused and not _match_ended and not _leaving \
+		and not card.visible and not side_panel.visible and not examples_panel.visible and not end_panel.visible \
+		and not (is_instance_valid(_event_picker) and _event_picker.get_popup().visible)
+
+
+func _on_pass_requested(target: SimPlayer) -> void:
+	if _passing_input_clear() and sim.request_pass(target):
+		field.update_pass_targets()
+		_refresh_bar()
+
+
+func _set_auto_passing(on: bool) -> void:
+	if not _passing_input_clear() or sim.phase not in [MatchSim.Phase.PRESNAP, MatchSim.Phase.LIVE]:
+		return
+	sim.auto_passing = on
+	GameState.auto_passing = on
+	_refresh_bar()
+
+
+func _auto_pass_button() -> Button:
+	var button := UIKit.button("AUTO: ON" if sim.auto_passing else "AUTO: OFF",12)
+	button.name = "AutoPass"
+	button.toggle_mode = true
+	button.button_pressed = sim.auto_passing
+	button.accessibility_name = "Auto passing"
+	button.tooltip_text = "Auto chooses the receiver and throw timing. Turn off to pass with number keys or receiver circles."
+	button.pressed.connect(func(): _set_auto_passing(not sim.auto_passing))
+	return button
 
 
 func _can_snap() -> bool:
@@ -175,6 +212,7 @@ func _start_match() -> void:
 		int(opp.get("drives", 4))
 	)
 	sim.is_bowl_game = is_bowl
+	sim.auto_passing = GameState.auto_passing
 	sim.set_kicker(GameState.kicker())
 	sim.set_weather(GameState.next_weather)
 	_apply_match_mods(mods)
@@ -212,6 +250,7 @@ func _build_layout() -> void:
 	field.set_anchors_preset(Control.PRESET_FULL_RECT)
 	field.sim = sim
 	field.player_clicked.connect(_on_player_clicked)
+	field.pass_requested.connect(_on_pass_requested)
 	field.field_clicked.connect(_dismiss_overlays)
 	field.route_drawn.connect(_on_route_drawn)
 	field.bottom_inset = float(BAR_TALL)
@@ -462,6 +501,7 @@ func _build_end_panel() -> void:
 func _process(delta: float) -> void:
 	if loading:
 		return
+	field.passing_controls_enabled = _passing_input_clear()
 	_update_top_bar()
 	_update_log()
 	_update_scout_panel()
@@ -613,6 +653,8 @@ func _update_log() -> void:
 # ============================================================================
 
 func _refresh_bar() -> void:
+	field.passing_controls_enabled = _passing_input_clear()
+	field.update_pass_targets()
 	_last_phase = sim.phase
 	for c in bar_host.get_children():
 		bar_host.remove_child(c)
@@ -901,15 +943,16 @@ func _chalk_card(f: SimPlayer) -> Control:
 	name_line.custom_minimum_size.x = 132
 	name_line.tooltip_text = "#%d %s" % [pd.number, pd.pname]
 	column.add_child(name_line)
-	var target := _name_choice("Priority target", sim.is_priority_target(slot))
-	target.name = "Priority_" + slot
-	target.accessibility_name = "Priority target: #%d %s" % [pd.number, pd.pname]
-	target.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	target.tooltip_text = "Prioritize #%d %s for passes. Space selects; Enter snaps." % [pd.number, pd.pname]
-	target.pressed.connect(func():
-		sim.toggle_priority_target(slot)
-		_refresh_bar())
-	column.add_child(target)
+	if sim.auto_passing:
+		var target := _name_choice("Priority target", sim.is_priority_target(slot))
+		target.name = "Priority_" + slot
+		target.accessibility_name = "Priority target: #%d %s" % [pd.number, pd.pname]
+		target.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+		target.tooltip_text = "Prioritize #%d %s for passes. Space selects; Enter snaps." % [pd.number, pd.pname]
+		target.pressed.connect(func():
+			sim.toggle_priority_target(slot)
+			_refresh_bar())
+		column.add_child(target)
 	if sim.plays_rb(f):
 		var handoff := _name_choice("Handoff", sim.planned_action == "handoff" and sim.planned_handoff_slot == slot)
 		handoff.name = "Handoff_" + slot
@@ -941,16 +984,20 @@ func _chalk_tools() -> Control:
 	col.alignment = BoxContainer.ALIGNMENT_CENTER
 	col.custom_minimum_size = Vector2(124, 0)
 	col.add_child(UIKit.label("TEAM CALL", 11, UIKit.ACCENT))
-	var all_on := sim.all_priority_targets_selected()
-	var targets := _name_choice("Clear targets" if all_on else "Target all", all_on)
-	targets.name = "AllTargets"
-	targets.pressed.connect(func():
-		if all_on:
-			sim.clear_priority_targets()
-		else:
-			sim.select_all_priority_targets()
-		_refresh_bar())
-	col.add_child(targets)
+	col.add_child(_auto_pass_button())
+	if sim.auto_passing:
+		var all_on := sim.all_priority_targets_selected()
+		var targets := _name_choice("Clear targets" if all_on else "Target all", all_on)
+		targets.name = "AllTargets"
+		targets.pressed.connect(func():
+			if all_on:
+				sim.clear_priority_targets()
+			else:
+				sim.select_all_priority_targets()
+			_refresh_bar())
+		col.add_child(targets)
+	else:
+		col.add_child(UIKit.label("Choose after snap",11,UIKit.MUTED))
 	var scramble := _name_choice("QB scramble", sim.planned_action == "scramble")
 	scramble.name = "Scramble"
 	scramble.tooltip_text = "The QB runs at the snap. Select again to cancel."
@@ -1255,6 +1302,9 @@ func _live_bar() -> Control:
 		row.add_child(UIKit.label("Field goal try - %d yards" % int(round(sim.kick_distance())), 13, UIKit.MUTED))
 		return row
 
+	row.add_child(_auto_pass_button())
+	if not sim.auto_passing and sim.planned_action == "" and not PlayDB.is_run(sim.play_id):
+		row.add_child(UIKit.label("Number key or circle: throw   |   DEX: current Dexterity",13,UIKit.TEXT))
 	if sim.planned_action == "handoff":
 		var target := sim.offense_slot(sim.planned_handoff_slot)
 		var name := target.data.pname if target != null else "?"

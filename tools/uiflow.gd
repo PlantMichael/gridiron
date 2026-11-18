@@ -13,6 +13,7 @@ func _ready() -> void:
 	# engine clock fast rather than waiting out twenty plays at 1x.
 	Engine.time_scale = 20.0
 	GameState.new_run(99001)
+	GameState.auto_passing = true # This harness exercises AI-driven plays and priority targets.
 	GameState.select_match(0,0)
 	await _play_full_match()
 	await _check_screen("post_match", "res://scenes/post_match.tscn")
