@@ -515,7 +515,6 @@ func _process(delta: float) -> void:
 		return
 
 	if sim.phase != _last_phase:
-		_last_phase = sim.phase
 		_refresh_bar()
 
 	_tick_auto_continue(delta)
@@ -535,7 +534,6 @@ func _process(delta: float) -> void:
 			break
 	if sim.phase == MatchSim.Phase.DEAD:
 		bucks_earned += int(sim.result.get("bucks", 0))
-		_last_phase = sim.phase
 		_refresh_bar()
 
 
@@ -660,10 +658,15 @@ func _refresh_bar() -> void:
 	field.passing_controls_enabled = _passing_input_clear()
 	field.update_pass_targets()
 	_last_phase = sim.phase
+	# Rebuild visual content while retaining nonvisual animation helpers.
 	for c in bar_host.get_children():
+		if not c is Control:
+			continue
 		bar_host.remove_child(c)
 		c.queue_free()
 	for c in float_panel.get_children():
+		if not c is Control:
+			continue
 		float_panel.remove_child(c)
 		c.queue_free()
 	_auto_left = -1.0
@@ -1085,6 +1088,8 @@ func _open_examples() -> void:
 
 func _fill_examples(ids: Array) -> void:
 	for c in examples_panel.get_children():
+		if not c is Control:
+			continue
 		examples_panel.remove_child(c)
 		c.queue_free()
 
@@ -1504,6 +1509,8 @@ func _begin_match_end() -> void:
 
 func _show_end_panel(won: bool, tied: bool, unlocks: Array) -> void:
 	for c in end_panel.get_children():
+		if not c is Control:
+			continue
 		c.queue_free()
 
 	var v := VBoxContainer.new()
@@ -1742,6 +1749,8 @@ func _open_team_stats() -> void:
 	_side_panel_mode = "stats"
 	card.visible = false
 	for c in side_panel.get_children():
+		if not c is Control:
+			continue
 		c.queue_free()
 
 	var v := VBoxContainer.new()
@@ -1851,6 +1860,8 @@ func _stat_section(section_title: String, headers: Array, rows: Array) -> Contro
 
 func _show_card(sp: SimPlayer) -> void:
 	for c in card.get_children():
+		if not c is Control:
+			continue
 		c.queue_free()
 
 	var v := VBoxContainer.new()
@@ -1993,6 +2004,8 @@ func _open_subs(slot: String) -> void:
 	_side_panel_mode = "subs"
 	card.visible = false
 	for c in side_panel.get_children():
+		if not c is Control:
+			continue
 		c.queue_free()
 
 	var v := VBoxContainer.new()
