@@ -105,6 +105,8 @@ func _build() -> void:
 		var tilt := TiltBox.new(tilts[i % tilts.size()])
 		tilt.add_child(cards[i])
 		row.add_child(tilt)
+		if is_node_ready():
+			UIMotion.reveal(tilt, minf(i * 0.025, 0.12), false)
 	if cards.is_empty():
 		row.add_child(UIKit.outlined(UIKit.label("Sold out. Refresh the stock for more.", 18, UIKit.TEXT)))
 	if _view == "items":

@@ -45,6 +45,10 @@ broadcast menu freezes gameplay and countdowns. In a match it also holds game
 speed, camera mode and Team Stats; speed and camera changes keep the game paused.
 Team Stats resumes into the stats panel. Dev mode adds a Lineup shortcut.
 The title and common navigation controls use the same dark panels and gold cues.
+Menus and match panels use brief reveals, with animated button focus/press
+feedback, lineup detail changes and shop-tab cards. Actions remain available
+during these effects. Toggle **Reduced Motion** on the title or pause menu to
+skip these animations and keep the loading-screen player still for this session.
 Choose **Resume** or
 press Esc again to continue. **Main Menu** and the desktop-only **Quit Game**
 ask for confirmation because runs are not saved; only bowl completion marks

@@ -176,6 +176,7 @@ static func button(text: String, size: int = 15) -> Button:
 	b.add_theme_font_size_override("font_size", size)
 	b.custom_minimum_size.y = 32
 	b.mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
+	UIMotion.wire_button(b)
 	return b
 
 
@@ -548,6 +549,7 @@ static func marker_label(text: String, size: int = 15, color: Color = INK) -> La
 ## turns on the stadium floodlights and a vignette (the title screen).
 static func background(root: Control, night: bool = false) -> void:
 	root.theme = menu_theme()
+	root.ready.connect(func(): UIMotion.enter_screen(root), CONNECT_ONE_SHOT)
 	var cr := ColorRect.new()
 	cr.color = BG
 	var mat := ShaderMaterial.new()

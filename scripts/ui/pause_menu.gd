@@ -13,6 +13,7 @@ var _main_button: Button
 var _previous_focus: Control
 var _quit_game := false
 var _hint: Label
+var _panel: PanelContainer
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
@@ -44,6 +45,7 @@ func open() -> void:
 	get_tree().paused = true
 	show()
 	_show_actions()
+	UIMotion.reveal(_panel)
 
 func resume() -> void:
 	hide()
@@ -66,6 +68,7 @@ func _build() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	_shade.add_child(center)
 	var panel := UIKit.menu_panel()
+	_panel = panel
 	panel.custom_minimum_size.x = 408
 	center.add_child(panel)
 	var column := VBoxContainer.new()
@@ -85,6 +88,7 @@ func _build() -> void:
 	_actions.add_child(_match_actions)
 	_main_button = _button("MAIN MENU", _ask_leave)
 	_actions.add_child(_main_button)
+	_actions.add_child(UIMotion.option_button())
 	if not OS.has_feature("web"):
 		_actions.add_child(_button("QUIT GAME", func(): _ask_leave(true)))
 	_confirm = VBoxContainer.new()

@@ -90,6 +90,8 @@ func _build() -> void:
 	var inspector := UIKit.panel()
 	inspector.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	body.add_child(inspector)
+	if is_node_ready():
+		UIMotion.reveal(inspector, 0.0, false)
 	var details := VBoxContainer.new()
 	details.add_theme_constant_override("separation", 10)
 	inspector.add_child(details)
@@ -148,6 +150,7 @@ func _slot_widget(slot: String) -> Control:
 	col.custom_minimum_size.x = 80
 	col.add_theme_constant_override("separation", 3)
 	var b := Button.new()
+	UIMotion.wire_button(b)
 	b.name = "Select_" + slot
 	b.custom_minimum_size = Vector2(62, 62)
 	b.size_flags_horizontal = Control.SIZE_SHRINK_CENTER

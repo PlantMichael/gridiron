@@ -53,6 +53,7 @@ func _ready() -> void:
 	var book := UIKit.menu_item("PLAYER BOOK")
 	book.pressed.connect(func(): get_tree().change_scene_to_file("res://scenes/player_book.tscn"))
 	options.add_child(book)
+	options.add_child(UIMotion.option_button())
 
 	# A browser tab can't be quit from inside the page, so the web build
 	# leaves it off.

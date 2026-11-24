@@ -120,6 +120,9 @@ func _ready() -> void:
 	loading = false
 	field.set_process(true)
 	LoadingScreen.finish(_loading_generation)
+	UIMotion.reveal(field, 0.0, false)
+	UIMotion.reveal(top_bar, 0.04)
+	UIMotion.reveal(play_bar, 0.08)
 	ready_to_play.emit()
 
 
@@ -653,6 +656,7 @@ func _update_log() -> void:
 # ============================================================================
 
 func _refresh_bar() -> void:
+	var phase_changed := _last_phase != sim.phase
 	field.passing_controls_enabled = _passing_input_clear()
 	field.update_pass_targets()
 	_last_phase = sim.phase
@@ -712,6 +716,8 @@ func _refresh_bar() -> void:
 				float_panel.add_child(_drive_over_bar())
 		_:
 			bar_host.add_child(_live_bar())
+	if phase_changed and not loading and not _match_ended:
+		UIMotion.reveal(float_panel if floating else play_bar, 0.0, false)
 
 
 func _playcall_bar() -> Control:
@@ -1074,6 +1080,7 @@ func _open_examples() -> void:
 	_fill_examples(ids)
 	_center_panel(examples_panel)
 	examples_panel.visible = true
+	UIMotion.reveal(examples_panel)
 
 
 func _fill_examples(ids: Array) -> void:
@@ -1574,6 +1581,7 @@ func _show_end_panel(won: bool, tied: bool, unlocks: Array) -> void:
 	_update_end_countdown_label()
 	end_panel.visible = true
 	_center_panel(end_panel)
+	UIMotion.reveal(end_panel)
 
 
 func _tick_end_countdown(delta: float) -> void:
@@ -1759,6 +1767,7 @@ func _open_team_stats() -> void:
 	list.add_child(_stat_section("RECEIVING", ["REC", "YDS", "TD", "AVG"], _receiving_rows()))
 	v.add_child(UIKit.scroll(list))
 	side_panel.visible = true
+	UIMotion.reveal(side_panel, 0.0, false)
 
 
 func _passing_rows() -> Array:
@@ -1936,6 +1945,7 @@ func _show_card(sp: SimPlayer) -> void:
 
 	card.visible = true
 	_place_card(sp)
+	UIMotion.reveal(card)
 
 
 func _stat_bar(value: int) -> Control:
@@ -2028,6 +2038,7 @@ func _open_subs(slot: String) -> void:
 
 	v.add_child(UIKit.scroll(list))
 	side_panel.visible = true
+	UIMotion.reveal(side_panel, 0.0, false)
 
 
 func _sub_row(idx: int, kind: String, slot: String) -> Control:

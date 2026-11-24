@@ -101,7 +101,7 @@ func _input(_event: InputEvent) -> void:
 func _process(delta: float) -> void:
 	if not active or not is_instance_valid(_player):
 		return
-	_clock += delta
+	_clock = 0.0 if UIMotion.reduced else _clock + delta
 	var beat := _clock * 5.5
 	_player.position = Vector2((_player_host.size.x - 144.0) * 0.5, 18.0 - absf(sin(beat)) * 18.0)
 	_player.rotation = sin(beat) * 0.07
