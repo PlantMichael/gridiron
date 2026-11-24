@@ -270,6 +270,12 @@ var _center: Vector2 = Vector2.ZERO
 var _cam_x: float = 30.0
 var _cam_y: float = 0.0        # lateral camera focus, in field yards
 var _zoom: float = 1.0
+## Temporary establishing-shot zoom; ordinary player-controlled zoom is separate.
+var intro_zoom: float = 1.0:
+	set(value):
+		intro_zoom = value
+		_recompute_transform()
+		queue_redraw()
 ## Extra zoom-out while a kick is on (see _recompute_transform), eased.
 var _kick_fit: float = 1.0
 var _kick_fit_target: float = 1.0
@@ -1201,7 +1207,7 @@ func _recompute_transform() -> void:
 	if sim != null and (sim.kick_mode or sim.kick_play):
 		var need := (MatchSim.POSTS_X + GOALPOST_RISE + 4.0) - (sim.kick_spot().x - 5.0)
 		_kick_fit_target = minf(1.0, (usable_h / _scale) / need)
-	_scale *= _kick_fit
+	_scale *= _kick_fit * intro_zoom
 	_visible_yards = usable_h / _scale
 	_center = Vector2(size.x * 0.5, top_inset + usable_h * 0.5)
 

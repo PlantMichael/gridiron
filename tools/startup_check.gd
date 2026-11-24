@@ -12,7 +12,8 @@ func _run() -> void:
 	LoadingScreen.go_to("res://scenes/main_menu.tscn")
 	await _settled()
 	_check(get_tree().current_scene.scene_file_path.ends_with("main_menu.tscn"), "boot handoff reaches the menu")
-	for entry in 2:
+	for entry in 5:
+		UIMotion.set_reduced(entry == 4, get_tree())
 		GameState.start_dev_mode() if entry == 0 else GameState.new_run(99011)
 		LoadingScreen.go_to("res://scenes/match.tscn")
 		await get_tree().scene_changed
@@ -21,14 +22,27 @@ func _run() -> void:
 		await _key(KEY_ENTER)
 		PauseMenu.open()
 		_check(LoadingScreen.active and not get_tree().paused, "preparation cannot be paused or exposed")
+		if entry in [1, 2, 3]:
+			var intro_deadline := Time.get_ticks_msec() + 10000
+			while LoadingScreen.visible and Time.get_ticks_msec() < intro_deadline:
+				await get_tree().process_frame
+			_check(LoadingScreen.active and get_tree().current_scene.loading, "intro gates readiness after preparation")
+			var before: float = get_tree().current_scene.sim.time
+			PauseMenu.open()
+			_check(not get_tree().paused, "intro cannot open pause under its input shield")
+			await _key([KEY_ENTER, KEY_ESCAPE, KEY_SPACE][entry - 1])
+			_check(not get_tree().current_scene.loading and get_tree().current_scene.sim.phase == MatchSim.Phase.PRESNAP \
+				and get_tree().current_scene.sim.time == before, "skip key reveals the field without snapping or advancing simulation")
 		await _settled()
 		var screen := get_tree().current_scene
 		_check(not screen.loading and screen.visible and screen.sim.phase == MatchSim.Phase.PRESNAP,
 			"each prepared entry reveals an unsnapped match")
+		_check(screen.field.intro_zoom == 1.0, "intro restores the ordinary field projection")
 		await _key(KEY_ENTER)
 		_check(screen.sim.phase == MatchSim.Phase.LIVE, "Enter works after readiness")
 		LoadingScreen.go_to("res://scenes/main_menu.tscn")
 		await _settled()
+	UIMotion.set_reduced(false, get_tree())
 	# A required sprite cannot be prepared. Exercise the real failed-match
 	# cleanup while the next menu owns a newer loading presentation.
 	GameState.new_run(99012)
@@ -54,10 +68,10 @@ func _run() -> void:
 	get_tree().quit(0 if failures == 0 else 1)
 
 func _settled() -> void:
-	var frames := 0
-	while LoadingScreen.active and frames < 600:
+	# Intro timing is real time, independent of headless frame throughput.
+	var deadline := Time.get_ticks_msec() + 10000
+	while LoadingScreen.active and Time.get_ticks_msec() < deadline:
 		await get_tree().process_frame
-		frames += 1
 	_check(not LoadingScreen.active, "loading finishes within the test deadline")
 
 func _key(code: Key) -> void:

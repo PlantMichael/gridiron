@@ -117,10 +117,22 @@ func _ready() -> void:
 	LoadingScreen.update_progress(1.0, "Ready for kickoff")
 	await get_tree().process_frame
 	await get_tree().process_frame
-	loading = false
 	field.set_process(true)
+	if not UIMotion.reduced:
+		top_bar.hide()
+		play_bar.hide()
+		field.draw_enabled = false
+		var intro := MatchIntro.new(GameState.team_name, sim.opponent_name, JerseyDB.score_color(sim.defense_jersey))
+		add_child(intro)
+		# Keep the existing readiness/input gate until the bumper finishes,
+		# while uncovering the prepared field underneath its own presentation.
+		LoadingScreen.hide()
+		await intro.play(field)
+		intro.queue_free()
+	loading = false
 	LoadingScreen.finish(_loading_generation)
-	UIMotion.reveal(field, 0.0, false)
+	top_bar.show()
+	_refresh_bar()
 	UIMotion.reveal(top_bar, 0.04)
 	UIMotion.reveal(play_bar, 0.08)
 	ready_to_play.emit()

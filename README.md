@@ -24,7 +24,10 @@ godot --path .
 
 Gridiron opens with a turf loading bar and a randomly selected player celebrating
 above it. Matches prepare both teams, the sideline crowd, officials and equipment
-before revealing the field. Controls become available after preparation finishes.
+before revealing the field. Team-name plates collide, recoil and slide away,
+then the camera zooms into the field before controls become available. Press
+**Enter**, **Space**, **Esc**, or click to skip the intro; that press does not
+also snap the ball. Reduced Motion skips the sequence.
 The browser loader uses download progress when the size is known and an
 indeterminate turf animation otherwise; a failed download offers **Try Again**.
 

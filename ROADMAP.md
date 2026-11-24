@@ -11,8 +11,10 @@ This UI pass does not complete priority 4’s introductions.
 
 Shared motion now covers menu entry, button feedback, lineup selection, shop
 tabs and match/result panels. Reduced Motion is available on the title and pause
-menu for the current session. Team/QB introductions and the versus splash remain
-unfinished.
+menu for the current session. The match-opening versus splash now sends the team
+name plates into a collision and recoil, clears them, then zooms into the field.
+Enter, Space, Esc or a click skips it without snapping; Reduced Motion skips it.
+Team/QB introductions at run start remain unfinished.
 
 Manual passing is implemented: numbered receiver circles, live Dexterity, and
 keyboard or click throws. Auto mode retains AI passing and priority targets.
@@ -25,7 +27,7 @@ New runs start Manual; the choice carries between matches during a run.
 | 1 | Complete | **Branding and loading.** Rename the game and repository to Gridiron, add the turf loading bar and animated player, and prepare the players and sidelines before revealing a match. Preserve existing QB/bowl completion records. |
 | 2 | Complete | **Lineup and shop clarity.** Show the selected starter, eligible replacements and stat comparisons. Use explicit Start, Swap, Equip and Unequip actions. Explain purchase destinations, lab costs, and ritual player losses before confirmation. |
 | 3 | Implemented; balance testing pending | **Remove touchdown buffs and add drive events.** Touchdowns retain points and football bucks, with no stat-buff picker. Each drive can roll oil, bottles, an extra defender or Aura Farm, increasingly often deeper into a run. |
-| 4 | Menu and panel animation implemented; introductions planned | **Run, match and result presentation.** Introduce the team and QB at run start, show a team-versus-team match splash, and review win/loss/tie presentation. Shared menu entry, selection feedback and match/result reveals are implemented. Make repeated introductions skippable. |
+| 4 | Match intro and menu animation implemented; run introductions planned | **Run, match and result presentation.** Introduce the team and QB at run start and review win/loss/tie presentation. The skippable clashing team-versus-team splash, shared menu entry, selection feedback and match/result reveals are implemented. |
 | 5 | Planned | **Head variety.** Add hair and facial-hair styles. Check all facings, portraits, skin-matched hands and collars, including sideline NPCs. Suggested first batch: 8–12 generic styles. |
 | 6 | Planned | **Items and recognizable sets.** Explain set membership, equipped-piece progress and active bonuses before purchase or equipping. Define set bonuses before expanding the item pool; suggested first batch: three sets of three pieces. |
 | 7 | Planned | **More Oddity and Cursed players.** Add distinct abilities that complement existing builds and explain their strengths and drawbacks during acquisition. Keep Cursed names demon-themed. Suggested first batch: three of each. |
