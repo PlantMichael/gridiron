@@ -13,6 +13,7 @@ var _caption: Label
 var _hint: Label
 var _veil: ColorRect
 var _motion: Tween
+var _home_approach := 0.0
 var _approach := 0.0
 var _recoil := 0.0
 var _departure := 0.0
@@ -55,7 +56,9 @@ func play(field: Control) -> void:
 		return
 	_field.intro_zoom = 0.68
 	_motion = create_tween().set_ignore_time_scale(true)
-	_motion.tween_property(self, "_approach", 1.0, 0.42).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
+	_motion.tween_property(self, "_home_approach", 1.0, 0.36).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_OUT)
+	_motion.tween_interval(0.16)
+	_motion.tween_property(self, "_approach", 1.0, 0.28).set_trans(Tween.TRANS_CUBIC).set_ease(Tween.EASE_IN)
 	_motion.tween_callback(func(): _impact = 1.0)
 	_motion.tween_property(self, "_recoil", 1.0, 0.13).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
 	_motion.parallel().tween_property(self, "_impact", 0.0, 0.28)
@@ -104,7 +107,7 @@ func _layout() -> void:
 	var height := clampf(size.y * 0.22, 168.0, 180.0)
 	var y := size.y * 0.47 - height * 0.5
 	var rebound := 38.0 * _recoil
-	var home_x := lerpf(-width - 48.0, size.x * 0.5 - width, _approach) - rebound
+	var home_x := lerpf(-width - 48.0, size.x * 0.5 - width, _home_approach) - rebound * 1.35
 	var away_x := lerpf(size.x + 48.0, size.x * 0.5, _approach) + rebound
 	_home.position = Vector2(lerpf(home_x, -width - 80.0, _departure), y)
 	_away.position = Vector2(lerpf(away_x, size.x + 80.0, _departure), y)

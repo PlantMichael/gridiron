@@ -24,7 +24,8 @@ godot --path .
 
 Gridiron opens with a turf loading bar and a randomly selected player celebrating
 above it. Matches prepare both teams, the sideline crowd, officials and equipment
-before revealing the field. Team-name plates collide, recoil and slide away,
+before revealing the field. Your team-name plate enters first; the opponent's
+plate then slams into it. Both recoil and slide away,
 then the camera zooms into the field before controls become available. Press
 **Enter**, **Space**, **Esc**, or click to skip the intro; that press does not
 also snap the ball. Reduced Motion skips the sequence.

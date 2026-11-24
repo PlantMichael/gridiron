@@ -12,7 +12,8 @@ This UI pass does not complete priority 4’s introductions.
 Shared motion now covers menu entry, button feedback, lineup selection, shop
 tabs and match/result panels. Reduced Motion is available on the title and pause
 menu for the current session. The match-opening versus splash now sends the team
-name plates into a collision and recoil, clears them, then zooms into the field.
+name plates into a collision and recoil: your team arrives first, then the opponent
+slams into it. Both clear the screen before the camera zooms into the field.
 Enter, Space, Esc or a click skips it without snapping; Reduced Motion skips it.
 Team/QB introductions at run start remain unfinished.
 
